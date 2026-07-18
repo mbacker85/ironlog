@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="IronLog">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#14120F">
+<title>IronLog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14120F;
+    --surface:#1E1B17;
+    --surface-alt:#262220;
+    --border:#35302B;
+    --text:#F2EEE7;
+    --muted:#9C948A;
+    --accent:#E3B23C;
+    --accent-dim:#8A6E24;
+    --up:#7CB88F;
+    --down:#C1614F;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; height:100%;}
+  body{
+    padding-bottom:env(safe-area-inset-bottom);
+    overscroll-behavior-y:none;
+  }
+  #app{max-width:520px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column;}
+
+  /* ---------- Header ---------- */
+  header{
+    position:sticky; top:0; z-index:10;
+    background:linear-gradient(180deg, var(--bg) 80%, transparent);
+    padding:calc(env(safe-area-inset-top) + 18px) 18px 10px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .brand{font-family:'Oswald',sans-serif; font-size:15px; letter-spacing:0.18em; color:var(--muted); text-transform:uppercase;}
+  .env-toggle{
+    display:flex; background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:3px;
+  }
+  .env-toggle button{
+    border:none; background:transparent; color:var(--muted); font-family:'Oswald',sans-serif; font-size:12px;
+    letter-spacing:0.08em; text-transform:uppercase; padding:7px 14px; border-radius:999px; cursor:pointer;
+  }
+  .env-toggle button.active{background:var(--accent); color:#1a1508; font-weight:600;}
+
+  /* ---------- Day plate ---------- */
+  .day-plate-row{display:flex; align-items:center; gap:16px; padding:6px 18px 18px;}
+  .plate{
+    width:64px; height:64px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #3a3226, #100e0b 72%);
+    border:3px solid var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Oswald',sans-serif; font-size:26px; font-weight:700; color:var(--accent);
+    flex-shrink:0;
+    box-shadow: inset 0 0 0 6px var(--bg), inset 0 0 0 7px var(--border);
+  }
+  .day-meta h1{font-family:'Oswald',sans-serif; font-size:22px; margin:0 0 2px; letter-spacing:0.02em;}
+  .day-meta p{margin:0; color:var(--muted); font-size:13px;}
+
+  /* ---------- Exercise list ---------- */
+  main{flex:1; padding:0 14px 120px;}
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:14px 16px; margin-bottom:10px;
+  }
+  .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px;}
+  .ex-name{font-family:'Oswald',sans-serif; font-size:16px; font-weight:600; letter-spacing:0.01em;}
+  .ex-sub{color:var(--muted); font-size:12px; margin-top:2px;}
+  .weight-box{text-align:right; flex-shrink:0;}
+  .weight-val{font-family:'IBM Plex Mono',monospace; font-size:20px; font-weight:600; color:var(--accent);}
+  .weight-unit{font-size:11px; color:var(--muted);}
+  .weight-edit{background:none; border:none; color:var(--muted); font-size:10px; text-decoration:underline; padding:2px 0; cursor:pointer;}
+
+  .sets-row{display:flex; gap:8px; flex-wrap:wrap;}
+  .set-chip{
+    flex:1; min-width:52px;
+    background:var(--surface-alt); border:1px solid var(--border); border-radius:10px;
+    display:flex; flex-direction:column; align-items:center; padding:6px 4px;
+  }
+  .set-chip .lbl{font-size:9px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px;}
+  .stepper{display:flex; align-items:center; gap:2px;}
+  .stepper button{
+    width:22px; height:22px; border-radius:6px; border:none; background:var(--border); color:var(--text);
+    font-size:14px; line-height:1; cursor:pointer;
+  }
+  .stepper .n{
+    width:26px; text-align:center; font-family:'IBM Plex Mono',monospace; font-size:14px; font-weight:600;
+  }
+  .bodyweight-tag{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em;}
+
+  .note{margin-top:8px; font-size:11px; color:var(--muted); display:flex; align-items:center; gap:5px;}
+  .note.up{color:var(--up);}
+  .note.down{color:var(--down);}
+
+  /* ---------- Bottom CTA ---------- */
+  .cta-bar{
+    position:fixed; bottom:0; left:0; right:0; z-index:20;
+    display:flex; justify-content:center;
+    padding:10px 14px calc(env(safe-area-inset-bottom) + 10px);
+    background:linear-gradient(0deg, var(--bg) 60%, transparent);
+  }
+  .cta-inner{max-width:520px; width:100%; display:flex; gap:10px;}
+  .btn-primary{
+    flex:1; background:var(--accent); color:#1a1508; border:none; border-radius:14px;
+    font-family:'Oswald',sans-serif; font-size:16px; font-weight:700; letter-spacing:0.03em; text-transform:uppercase;
+    padding:16px; cursor:pointer;
+  }
+  .btn-ghost{
+    background:var(--surface); border:1px solid var(--border); color:var(--muted); border-radius:14px;
+    font-family:'Oswald',sans-serif; font-size:13px; padding:16px 14px; cursor:pointer;
+  }
+
+  /* ---------- History / summary views ---------- */
+  .view{display:none;}
+  .view.active{display:block;}
+  .summary-card{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:10px;}
+  .summary-card h3{font-family:'Oswald',sans-serif; margin:0 0 8px; font-size:15px;}
+  .summary-row{display:flex; justify-content:space-between; font-size:13px; padding:5px 0; border-bottom:1px solid var(--border);}
+  .summary-row:last-child{border-bottom:none;}
+  .hist-entry{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:8px;}
+  .hist-entry .hdate{font-family:'Oswald',sans-serif; font-size:13px; color:var(--accent); margin-bottom:2px;}
+  .hist-entry .hmeta{font-size:11px; color:var(--muted);}
+  .empty{color:var(--muted); text-align:center; padding:60px 20px; font-size:13px;}
+  .icon-btn{background:var(--surface); border:1px solid var(--border); color:var(--muted); border-radius:10px; padding:8px 12px; font-size:12px; font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.06em; cursor:pointer;}
+  .top-actions{display:flex; gap:8px; padding:0 18px 10px; justify-content:flex-end;}
+  .loading{padding:80px 20px; text-align:center; color:var(--muted); font-size:13px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">IronLog</div>
+    <div class="env-toggle" id="envToggle">
+      <button data-env="home">Home</button>
+      <button data-env="gym">Gym</button>
+    </div>
+  </header>
+
+  <div class="top-actions">
+    <button class="icon-btn" id="historyBtn">History</button>
+  </div>
+
+  <div class="day-plate-row" id="dayPlateRow"></div>
+
+  <main>
+    <div class="view active" id="workoutView">
+      <div class="loading" id="loadingMsg">Loading your split…</div>
+    </div>
+    <div class="view" id="summaryView"></div>
+    <div class="view" id="historyView"></div>
+  </main>
+
+  <div class="cta-bar" id="ctaBar" style="display:none;">
+    <div class="cta-inner">
+      <button class="btn-ghost" id="backBtn" style="display:none;">Back</button>
+      <button class="btn-primary" id="mainBtn">Finish Day</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+
+  // ---------------- Workout definition ----------------
+  // Weights below are starting points seeded from the user's whiteboard log.
+  // Home dumbbells only exist at these fixed increments:
+  const HOME_STEPS = [12,21,29,38,46,55,63,72,81,90];
+  function nearestHomeIndex(w){
+    let best=0, bestDiff=Infinity;
+    HOME_STEPS.forEach((v,i)=>{ const d=Math.abs(v-w); if(d<bestDiff){bestDiff=d; best=i;} });
+    return best;
+  }
+  function homeStep(w, dir){
+    const i = nearestHomeIndex(w);
+    const j = Math.min(HOME_STEPS.length-1, Math.max(0, i+dir));
+    return HOME_STEPS[j];
+  }
+  function gymStep(w, dir){
+    const rounded = Math.round(w/5)*5;
+    return Math.max(5, rounded + dir*5);
+  }
+  function roundToGym(w){ return Math.max(5, Math.round(w/5)*5); }
+
+  const WORKOUT = {
+    A: {label:'Day A', sub:'Chest / Shoulders / Arms', exercises:[
+      {id:'db-bench', name:'DB Bench Press', sets:4, baseReps:8, home:63},
+      {id:'db-row', name:'DB Row', sets:4, baseReps:8, home:65},
+      {id:'incline-press', name:'Incline Press', sets:3, baseReps:10, home:46},
+      {id:'seated-press', name:'Seated Press', sets:3, baseReps:10, home:38},
+      {id:'lateral-raise', name:'Lateral Raise', sets:3, baseReps:15, home:12},
+      {id:'db-curl', name:'DB Curl', sets:3, baseReps:10, home:21},
+      {id:'oh-tricep-ext', name:'Overhead Tricep Extension', sets:3, baseReps:10, home:29},
+      {id:'tricep-dip', name:'Tricep Dip', sets:3, baseReps:10, bodyweight:true},
+      {id:'ab-roll-a', name:'Ab Roll', sets:3, baseReps:10, bodyweight:true},
+    ]},
+    B: {label:'Day B', sub:'Legs', exercises:[
+      {id:'bulgarian-split-squat', name:'Bulgarian Split Squat', sets:4, baseReps:8, home:29},
+      {id:'db-rom-deadlift-b', name:'DB Romanian Deadlift', sets:4, baseReps:10, home:38},
+      {id:'goblet-squat', name:'Goblet Squat', sets:3, baseReps:15, home:12},
+      {id:'lunge', name:'Lunge (per leg)', sets:3, baseReps:10, home:29},
+      {id:'calf-raise', name:'Calf Raise', sets:4, baseReps:20, home:12},
+      {id:'ab-roll-b', name:'Ab Roll', sets:3, baseReps:10, bodyweight:true},
+    ]},
+    C: {label:'Day C', sub:'Push / Pull / Arms', exercises:[
+      {id:'incline-press-c', name:'Incline Press', sets:4, baseReps:8, home:55},
+      {id:'chest-row', name:'Chest-Supported Row', sets:4, baseReps:8, home:21},
+      {id:'db-rom-deadlift-c', name:'DB Romanian Deadlift', sets:3, baseReps:10, home:38},
+      {id:'seated-press-c', name:'Seated Press', sets:3, baseReps:10, home:38},
+      {id:'lateral-raise-c', name:'Lateral Raise', sets:3, baseReps:15, home:12},
+      {id:'hammer-curl', name:'Hammer Curl', sets:3, baseReps:12, home:21},
+      {id:'close-db-press', name:'Close-Grip DB Press', sets:3, baseReps:10, home:38},
+      {id:'ab-roller-c', name:'Ab Roller', sets:3, baseReps:10, bodyweight:true},
+    ]},
+  };
+  const DAY_ORDER = ['A','B','C'];
+  const STORAGE_KEY = 'ironlog-state-v1';
+
+  // ---------------- State ----------------
+  let state = null;
+
+  function buildDefaultState(){
+    const exerciseState = {};
+    DAY_ORDER.forEach(d=>{
+      WORKOUT[d].exercises.forEach(ex=>{
+        if(ex.bodyweight){
+          exerciseState[ex.id] = {repTarget: ex.baseReps};
+        } else {
+          exerciseState[ex.id] = {
+            repTarget: ex.baseReps,
+            homeWeight: ex.home,
+            gymWeight: roundToGym(ex.home)
+          };
+        }
+      });
+    });
+    return {
+      dayIndex: 0,
+      environment: 'home',
+      exerciseState,
+      history: []
+    };
+  }
+
+  async function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) return JSON.parse(raw);
+      return null;
+    }catch(e){
+      return null;
+    }
+  }
+  async function saveState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e){
+      console.error('Save failed', e);
+    }
+  }
+
+  // ---------------- Rendering ----------------
+  const workoutView = document.getElementById('workoutView');
+  const summaryView = document.getElementById('summaryView');
+  const historyView = document.getElementById('historyView');
+  const dayPlateRow = document.getElementById('dayPlateRow');
+  const ctaBar = document.getElementById('ctaBar');
+  const mainBtn = document.getElementById('mainBtn');
+  const backBtn = document.getElementById('backBtn');
+  const envToggle = document.getElementById('envToggle');
+  const historyBtn = document.getElementById('historyBtn');
+
+  let currentSetLogs = {}; // exId -> array of logged reps
+  let mode = 'workout'; // workout | summary | history
+
+  function currentDayKey(){ return DAY_ORDER[state.dayIndex]; }
+  function nextDayKey(){ return DAY_ORDER[(state.dayIndex+1)%3]; }
+
+  function setEnvButtons(){
+    envToggle.querySelectorAll('button').forEach(b=>{
+      b.classList.toggle('active', b.dataset.env === state.environment);
+    });
+  }
+
+  function renderDayPlate(){
+    const day = currentDayKey();
+    const info = WORKOUT[day];
+    dayPlateRow.innerHTML = `
+      <div class="plate">${day}</div>
+      <div class="day-meta">
+        <h1>${info.label}</h1>
+        <p>${info.sub} · next up: Day ${nextDayKey()}</p>
+      </div>
+    `;
+  }
+
+  function weightFor(ex){
+    const es = state.exerciseState[ex.id];
+    return state.environment === 'home' ? es.homeWeight : es.gymWeight;
+  }
+
+  function renderWorkout(){
+    mode='workout';
+    workoutView.classList.add('active');
+    summaryView.classList.remove('active');
+    historyView.classList.remove('active');
+    ctaBar.style.display = 'flex';
+    backBtn.style.display = 'none';
+    mainBtn.textContent = 'Finish ' + WORKOUT[currentDayKey()].label;
+
+    const day = currentDayKey();
+    const exercises = WORKOUT[day].exercises;
+    currentSetLogs = {};
+
+    let html = '';
+    exercises.forEach(ex=>{
+      const es = state.exerciseState[ex.id];
+      const target = es.repTarget;
+      currentSetLogs[ex.id] = new Array(ex.sets).fill(target);
+
+      let weightHtml = '';
+      if(ex.bodyweight){
+        weightHtml = `<div class="weight-box"><div class="bodyweight-tag">Bodyweight</div></div>`;
+      } else {
+        const w = weightFor(ex);
+        weightHtml = `
+          <div class="weight-box">
+            <div class="weight-val" id="wv-${ex.id}">${w}<span class="weight-unit"> lb</span></div>
+            <button class="weight-edit" data-exid="${ex.id}">edit</button>
+          </div>`;
+      }
+
+      let chips = '';
+      for(let s=0; s<ex.sets; s++){
+        chips += `
+          <div class="set-chip">
+            <div class="lbl">Set ${s+1}</div>
+            <div class="stepper">
+              <button data-act="dec" data-exid="${ex.id}" data-set="${s}">–</button>
+              <div class="n" id="n-${ex.id}-${s}">${target}</div>
+              <button data-act="inc" data-exid="${ex.id}" data-set="${s}">+</button>
+            </div>
+          </div>`;
+      }
+
+      html += `
+        <div class="card">
+          <div class="card-top">
+            <div>
+              <div class="ex-name">${ex.name}</div>
+              <div class="ex-sub">${ex.sets} sets × ${target} reps target</div>
+            </div>
+            ${weightHtml}
+          </div>
+          <div class="sets-row">${chips}</div>
+        </div>
+      `;
+    });
+
+    workoutView.innerHTML = html;
+
+    // wire steppers
+    workoutView.querySelectorAll('.stepper button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const exid = btn.dataset.exid, s = parseInt(btn.dataset.set), act = btn.dataset.act;
+        let v = currentSetLogs[exid][s];
+        v = act === 'inc' ? v+1 : Math.max(0, v-1);
+        currentSetLogs[exid][s] = v;
+        document.getElementById(`n-${exid}-${s}`).textContent = v;
+      });
+    });
+
+    // wire weight edit
+    workoutView.querySelectorAll('.weight-edit').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const exid = btn.dataset.exid;
+        const es = state.exerciseState[exid];
+        const cur = state.environment === 'home' ? es.homeWeight : es.gymWeight;
+        const val = prompt('Set current working weight (lb):', cur);
+        if(val === null) return;
+        const num = parseFloat(val);
+        if(isNaN(num) || num <= 0) return;
+        if(state.environment === 'home'){
+          es.homeWeight = homeStep(num, 0);
+        } else {
+          es.gymWeight = roundToGym(num);
+        }
+        saveState();
+        renderWorkout();
+      });
+    });
+  }
+
+  function computeNext(ex, actualReps, repTarget){
+    const allMet = actualReps.every(r => r >= repTarget);
+    const avg = actualReps.reduce((a,b)=>a+b,0)/actualReps.length;
+    const cap = ex.baseReps + 2;
+    let result = {repTarget, weightDelta: 0, note: 'Repeat — same weight & reps.', dir:'hold'};
+
+    if(allMet){
+      if(repTarget < cap){
+        result = {repTarget: repTarget+1, weightDelta:0, note:`Nailed it — add a rep next time (target ${repTarget+1}).`, dir:'up'};
+      } else {
+        result = {repTarget: ex.baseReps, weightDelta:1, note:'Capped out on reps — weight goes up, reps reset.', dir:'up'};
+      }
+    } else if(avg < repTarget * 0.7){
+      result = {repTarget: ex.baseReps, weightDelta:-1, note:'Missed by a lot — dropping weight next time.', dir:'down'};
+    }
+    return result;
+  }
+
+  function finishWorkout(){
+    const day = currentDayKey();
+    const exercises = WORKOUT[day].exercises;
+    const entries = [];
+
+    exercises.forEach(ex=>{
+      const es = state.exerciseState[ex.id];
+      const actual = currentSetLogs[ex.id];
+      const target = es.repTarget;
+      const result = computeNext(ex, actual, target);
+
+      let weightNote = '';
+      if(!ex.bodyweight){
+        if(result.weightDelta !== 0){
+          const dir = result.weightDelta;
+          if(state.environment === 'home'){
+            es.homeWeight = homeStep(es.homeWeight, dir);
+          } else {
+            es.gymWeight = gymStep(es.gymWeight, dir);
+          }
+          // keep the other environment's weight untouched — tracked independently
+        }
+        const newW = state.environment === 'home' ? es.homeWeight : es.gymWeight;
+        weightNote = `${newW} lb`;
+      } else {
+        weightNote = 'bodyweight';
+      }
+      es.repTarget = result.repTarget;
+
+      entries.push({
+        id: ex.id, name: ex.name, reps: actual, target,
+        note: result.note, dir: result.dir, nextWeight: weightNote
+      });
+    });
+
+    state.history.unshift({
+      date: new Date().toISOString(),
+      day, environment: state.environment,
+      entries
+    });
+    if(state.history.length > 60) state.history.length = 60;
+
+    state.dayIndex = (state.dayIndex+1) % 3;
+    saveState();
+    renderSummary(entries, day);
+  }
+
+  function renderSummary(entries, day){
+    mode='summary';
+    workoutView.classList.remove('active');
+    historyView.classList.remove('active');
+    summaryView.classList.add('active');
+    ctaBar.style.display = 'flex';
+    backBtn.style.display = 'none';
+    mainBtn.textContent = `Start ${WORKOUT[currentDayKey()].label}`;
+
+    let rows = entries.map(e=>{
+      const arrow = e.dir==='up' ? '▲' : e.dir==='down' ? '▼' : '■';
+      const cls = e.dir==='up' ? 'up' : e.dir==='down' ? 'down' : '';
+      return `<div class="summary-row"><span>${arrow} ${e.name}</span><span class="${cls}">${e.nextWeight}</span></div>`;
+    }).join('');
+
+    summaryView.innerHTML = `
+      <div class="summary-card">
+        <h3>${WORKOUT[day].label} complete</h3>
+        ${rows}
+      </div>
+      <p style="color:var(--muted); font-size:12px; padding:0 4px;">Logged. Next time you open IronLog it'll have Day ${currentDayKey()} loaded and ready.</p>
+    `;
+
+    mainBtn.onclick = ()=>{ renderDayPlate(); renderWorkout(); mainBtn.onclick = finishWorkout; };
+  }
+
+  function renderHistory(){
+    mode='history';
+    workoutView.classList.remove('active');
+    summaryView.classList.remove('active');
+    historyView.classList.add('active');
+    ctaBar.style.display = 'flex';
+    backBtn.style.display = 'inline-block';
+    mainBtn.textContent = 'Close History';
+
+    if(state.history.length === 0){
+      historyView.innerHTML = `<div class="empty">No sessions logged yet.<br>Finish a workout to start building history.</div>`;
+    } else {
+      historyView.innerHTML = state.history.map(h=>{
+        const d = new Date(h.date);
+        const dstr = d.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
+        const summary = h.entries.map(e=> `${e.name.split(' ')[0]} ${e.nextWeight}`).join(' · ');
+        return `<div class="hist-entry">
+          <div class="hdate">Day ${h.day} — ${dstr} <span style="color:var(--muted); font-weight:normal;">(${h.environment})</span></div>
+          <div class="hmeta">${summary}</div>
+        </div>`;
+      }).join('');
+    }
+
+    mainBtn.onclick = ()=>{ renderWorkout(); mainBtn.onclick = finishWorkout; };
+    backBtn.onclick = ()=>{ renderWorkout(); mainBtn.onclick = finishWorkout; };
+  }
+
+  // ---------------- Init ----------------
+  envToggle.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      state.environment = b.dataset.env;
+      setEnvButtons();
+      saveState();
+      if(mode==='workout') renderWorkout();
+    });
+  });
+
+  historyBtn.addEventListener('click', renderHistory);
+  mainBtn.addEventListener('click', finishWorkout);
+
+  (async function init(){
+    const loaded = await loadState();
+    state = loaded || buildDefaultState();
+    if(!loaded) await saveState();
+    setEnvButtons();
+    renderDayPlate();
+    renderWorkout();
+  })();
+
+})();
+</script>
+</body>
+</html>
