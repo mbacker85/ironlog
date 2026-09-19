@@ -8,535 +8,917 @@
 <meta name="apple-mobile-web-app-title" content="IronLog">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#14120F">
-<title>IronLog</title>
+<title>IronLog V2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#14120F;
-    --surface:#1E1B17;
-    --surface-alt:#262220;
-    --border:#35302B;
-    --text:#F2EEE7;
-    --muted:#9C948A;
-    --accent:#E3B23C;
-    --accent-dim:#8A6E24;
-    --up:#7CB88F;
-    --down:#C1614F;
+    --bg:#14120F; --surface:#1E1B17; --surface-alt:#262220; --border:#35302B;
+    --text:#F2EEE7; --muted:#9C948A; --accent:#E3B23C; --accent-dim:#8A6E24;
+    --up:#7CB88F; --down:#C1614F; --info:#8AA7C6;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; height:100%;}
-  body{
-    padding-bottom:env(safe-area-inset-bottom);
-    overscroll-behavior-y:none;
-  }
-  #app{max-width:520px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column;}
-
-  /* ---------- Header ---------- */
-  header{
-    position:sticky; top:0; z-index:10;
-    background:linear-gradient(180deg, var(--bg) 80%, transparent);
-    padding:calc(env(safe-area-inset-top) + 18px) 18px 10px;
-    display:flex; align-items:center; justify-content:space-between;
-  }
-  .brand{font-family:'Oswald',sans-serif; font-size:15px; letter-spacing:0.18em; color:var(--muted); text-transform:uppercase;}
-  .env-toggle{
-    display:flex; background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:3px;
-  }
-  .env-toggle button{
-    border:none; background:transparent; color:var(--muted); font-family:'Oswald',sans-serif; font-size:12px;
-    letter-spacing:0.08em; text-transform:uppercase; padding:7px 14px; border-radius:999px; cursor:pointer;
-  }
-  .env-toggle button.active{background:var(--accent); color:#1a1508; font-weight:600;}
-
-  /* ---------- Day plate ---------- */
-  .day-plate-row{display:flex; align-items:center; gap:16px; padding:6px 18px 18px;}
-  .plate{
-    width:64px; height:64px; border-radius:50%;
-    background:radial-gradient(circle at 35% 30%, #3a3226, #100e0b 72%);
-    border:3px solid var(--accent);
-    display:flex; align-items:center; justify-content:center;
-    font-family:'Oswald',sans-serif; font-size:26px; font-weight:700; color:var(--accent);
-    flex-shrink:0;
-    box-shadow: inset 0 0 0 6px var(--bg), inset 0 0 0 7px var(--border);
-  }
-  .day-meta h1{font-family:'Oswald',sans-serif; font-size:22px; margin:0 0 2px; letter-spacing:0.02em;}
-  .day-meta p{margin:0; color:var(--muted); font-size:13px;}
-
-  /* ---------- Exercise list ---------- */
-  main{flex:1; padding:0 14px 120px;}
-  .card{
-    background:var(--surface); border:1px solid var(--border); border-radius:14px;
-    padding:14px 16px; margin-bottom:10px;
-  }
-  .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px;}
-  .ex-name{font-family:'Oswald',sans-serif; font-size:16px; font-weight:600; letter-spacing:0.01em;}
-  .ex-sub{color:var(--muted); font-size:12px; margin-top:2px;}
-  .weight-box{text-align:right; flex-shrink:0;}
-  .weight-val{font-family:'IBM Plex Mono',monospace; font-size:20px; font-weight:600; color:var(--accent);}
-  .weight-unit{font-size:11px; color:var(--muted);}
-  .weight-edit{background:none; border:none; color:var(--muted); font-size:10px; text-decoration:underline; padding:2px 0; cursor:pointer;}
-
-  .sets-row{display:flex; gap:8px; flex-wrap:wrap;}
-  .set-chip{
-    flex:1; min-width:52px;
-    background:var(--surface-alt); border:1px solid var(--border); border-radius:10px;
-    display:flex; flex-direction:column; align-items:center; padding:6px 4px;
-  }
-  .set-chip .lbl{font-size:9px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px;}
-  .stepper{display:flex; align-items:center; gap:2px;}
-  .stepper button{
-    width:22px; height:22px; border-radius:6px; border:none; background:var(--border); color:var(--text);
-    font-size:14px; line-height:1; cursor:pointer;
-  }
-  .stepper .n{
-    width:26px; text-align:center; font-family:'IBM Plex Mono',monospace; font-size:14px; font-weight:600;
-  }
-  .bodyweight-tag{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em;}
-
-  .note{margin-top:8px; font-size:11px; color:var(--muted); display:flex; align-items:center; gap:5px;}
-  .note.up{color:var(--up);}
-  .note.down{color:var(--down);}
-
-  /* ---------- Bottom CTA ---------- */
-  .cta-bar{
-    position:fixed; bottom:0; left:0; right:0; z-index:20;
-    display:flex; justify-content:center;
-    padding:10px 14px calc(env(safe-area-inset-bottom) + 10px);
-    background:linear-gradient(0deg, var(--bg) 60%, transparent);
-  }
-  .cta-inner{max-width:520px; width:100%; display:flex; gap:10px;}
-  .btn-primary{
-    flex:1; background:var(--accent); color:#1a1508; border:none; border-radius:14px;
-    font-family:'Oswald',sans-serif; font-size:16px; font-weight:700; letter-spacing:0.03em; text-transform:uppercase;
-    padding:16px; cursor:pointer;
-  }
-  .btn-ghost{
-    background:var(--surface); border:1px solid var(--border); color:var(--muted); border-radius:14px;
-    font-family:'Oswald',sans-serif; font-size:13px; padding:16px 14px; cursor:pointer;
-  }
-
-  /* ---------- History / summary views ---------- */
-  .view{display:none;}
-  .view.active{display:block;}
-  .summary-card{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:10px;}
-  .summary-card h3{font-family:'Oswald',sans-serif; margin:0 0 8px; font-size:15px;}
-  .summary-row{display:flex; justify-content:space-between; font-size:13px; padding:5px 0; border-bottom:1px solid var(--border);}
-  .summary-row:last-child{border-bottom:none;}
-  .hist-entry{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:8px;}
-  .hist-entry .hdate{font-family:'Oswald',sans-serif; font-size:13px; color:var(--accent); margin-bottom:2px;}
-  .hist-entry .hmeta{font-size:11px; color:var(--muted);}
-  .empty{color:var(--muted); text-align:center; padding:60px 20px; font-size:13px;}
-  .icon-btn{background:var(--surface); border:1px solid var(--border); color:var(--muted); border-radius:10px; padding:8px 12px; font-size:12px; font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.06em; cursor:pointer;}
-  .top-actions{display:flex; gap:8px; padding:0 18px 10px; justify-content:flex-end;}
-  .loading{padding:80px 20px; text-align:center; color:var(--muted); font-size:13px;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100%}
+  body{padding-bottom:env(safe-area-inset-bottom);overscroll-behavior-y:none}
+  button,input{font:inherit}
+  button{touch-action:manipulation}
+  #app{max-width:560px;margin:0 auto;min-height:100vh;padding-bottom:150px}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,var(--bg) 82%,transparent);padding:calc(env(safe-area-inset-top) + 16px) 16px 10px}
+  .header-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .brand{font-family:'Oswald',sans-serif;font-size:15px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
+  .header-actions{display:flex;gap:7px;align-items:center}
+  .icon-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:8px 10px;font-size:11px;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.06em;cursor:pointer}
+  .env-row{display:flex;justify-content:flex-end;margin-top:10px}
+  .env-toggle{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:3px}
+  .env-toggle button{border:none;background:transparent;color:var(--muted);font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:7px 15px;border-radius:999px;cursor:pointer}
+  .env-toggle button.active{background:var(--accent);color:#1a1508;font-weight:600}
+  .env-toggle.locked{opacity:.7}
+  .env-lock{font-size:10px;color:var(--muted);margin:7px 3px 0;text-align:right}
+  .day-plate-row{display:flex;align-items:center;gap:16px;padding:8px 18px 14px}
+  .plate{width:64px;height:64px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#3a3226,#100e0b 72%);border:3px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:26px;font-weight:700;color:var(--accent);flex-shrink:0;box-shadow:inset 0 0 0 6px var(--bg),inset 0 0 0 7px var(--border)}
+  .day-meta h1{font-family:'Oswald',sans-serif;font-size:22px;margin:0 0 2px}
+  .day-meta p{margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+  .progress-wrap{padding:0 18px 12px}
+  .progress-line{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:6px}
+  .progress-bar{height:6px;background:var(--surface);border:1px solid var(--border);border-radius:999px;overflow:hidden}
+  .progress-fill{height:100%;background:var(--accent);width:0;transition:width .2s ease}
+  .migration{margin:0 14px 10px;padding:12px 14px;border:1px solid var(--accent-dim);border-radius:12px;background:rgba(227,178,60,.08);font-size:12px;line-height:1.45}
+  .migration button{float:right;margin-left:10px;border:none;background:none;color:var(--accent);cursor:pointer;font-weight:600}
+  main{padding:0 14px}
+  .view{display:none}.view.active{display:block}
+  .start-card,.card,.summary-card,.hist-entry,.settings-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:15px 16px;margin-bottom:10px}
+  .start-card h2,.summary-card h3,.settings-card h3{font-family:'Oswald',sans-serif;margin:0 0 8px}
+  .start-card p,.settings-card p{font-size:12px;color:var(--muted);line-height:1.5;margin:6px 0}
+  .start-list{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}
+  .start-list div{font-size:11px;color:var(--muted);padding:8px;background:var(--surface-alt);border-radius:9px}
+  .card{transition:opacity .15s,border-color .15s}
+  .card.complete{border-color:rgba(124,184,143,.65);background:rgba(124,184,143,.06)}
+  .card.skipped{opacity:.68}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+  .ex-name{font-family:'Oswald',sans-serif;font-size:17px;font-weight:600}
+  .ex-sub{color:var(--muted);font-size:11px;margin-top:3px;line-height:1.4}
+  .weight-box{text-align:right;flex-shrink:0}
+  .weight-val{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--accent)}
+  .weight-unit{font-size:11px;color:var(--muted)}
+  .weight-edit{background:none;border:none;color:var(--muted);font-size:10px;text-decoration:underline;padding:2px 0;cursor:pointer}
+  .goal-box{background:var(--surface-alt);border-radius:10px;padding:9px 10px;margin:8px 0 10px;font-size:11px;color:var(--muted);line-height:1.4}
+  .goal-box strong{color:var(--text);font-weight:600}
+  .sets-row{display:flex;gap:8px;flex-wrap:wrap}
+  .set-chip{flex:1;min-width:86px;background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;padding:7px 5px;text-align:center}
+  .set-chip.done{border-color:rgba(124,184,143,.7);background:rgba(124,184,143,.09)}
+  .set-chip .lbl{font-size:9px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+  .stepper{display:flex;align-items:center;justify-content:center;gap:3px}
+  .stepper button{width:23px;height:23px;border-radius:6px;border:none;background:var(--border);color:var(--text);font-size:14px;cursor:pointer}
+  .stepper .n{width:28px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600}
+  .set-done{margin-top:6px;width:100%;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:7px;padding:5px 4px;font-size:10px;font-weight:600;cursor:pointer}
+  .set-chip.done .set-done{background:var(--up);border-color:var(--up);color:#132018}
+  .rir-wrap{margin-top:11px;padding-top:11px;border-top:1px solid var(--border)}
+  .rir-label{font-size:11px;color:var(--muted);margin-bottom:7px}
+  .rir-buttons{display:flex;gap:7px}
+  .rir-buttons button{flex:1;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted);border-radius:9px;padding:8px 5px;font-size:11px;cursor:pointer}
+  .rir-buttons button.active{border-color:var(--accent);color:var(--accent);background:rgba(227,178,60,.08)}
+  .exercise-actions{display:flex;gap:7px;margin-top:10px}
+  .exercise-actions button{border-radius:9px;padding:9px 10px;font-size:11px;cursor:pointer}
+  .complete-ex{flex:1;border:none;background:var(--accent);color:#1a1508;font-weight:700}
+  .complete-ex:disabled{opacity:.35;cursor:not-allowed}
+  .secondary{border:1px solid var(--border);background:transparent;color:var(--muted)}
+  .next-note{margin-top:10px;font-size:11px;line-height:1.45;padding:9px 10px;border-radius:9px;background:rgba(124,184,143,.09);color:var(--up)}
+  .bodyweight-tag{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .cta-bar{position:fixed;bottom:0;left:0;right:0;z-index:30;display:flex;justify-content:center;padding:10px 14px calc(env(safe-area-inset-bottom) + 10px);background:linear-gradient(0deg,var(--bg) 72%,transparent)}
+  .cta-inner{max-width:560px;width:100%;display:flex;gap:9px}
+  .btn-primary{flex:1;background:var(--accent);color:#1a1508;border:none;border-radius:14px;font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:15px;cursor:pointer}
+  .btn-ghost{background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:14px;font-family:'Oswald',sans-serif;font-size:12px;padding:15px 13px;cursor:pointer}
+  .timer{position:fixed;left:50%;transform:translateX(-50%);bottom:82px;z-index:29;width:calc(100% - 28px);max-width:532px;background:#0f0e0c;border:1px solid var(--accent-dim);border-radius:13px;padding:10px 12px;display:none;align-items:center;gap:10px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+  .timer.show{display:flex}
+  .timer-main{flex:1}.timer-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.timer-time{font-family:'IBM Plex Mono',monospace;font-size:22px;color:var(--accent);font-weight:600;margin-top:1px}
+  .timer button{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:8px;padding:8px 9px;font-size:10px;cursor:pointer}
+  .summary-row{display:flex;justify-content:space-between;gap:12px;font-size:12px;padding:7px 0;border-bottom:1px solid var(--border)}
+  .summary-row:last-child{border-bottom:none}.summary-row span:last-child{text-align:right;color:var(--muted)}
+  .hist-entry .hdate{font-family:'Oswald',sans-serif;font-size:13px;color:var(--accent);margin-bottom:4px}.hist-entry .hmeta{font-size:11px;color:var(--muted);line-height:1.5}
+  .empty{color:var(--muted);text-align:center;padding:60px 20px;font-size:13px}
+  .settings-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}.settings-row:last-child{border-bottom:none}
+  .toggle{border:1px solid var(--border);background:var(--surface-alt);color:var(--muted);border-radius:999px;padding:6px 10px;font-size:10px;cursor:pointer}.toggle.on{color:#132018;background:var(--up);border-color:var(--up)}
+  .settings-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.settings-actions button{flex:1;min-width:130px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);border-radius:9px;padding:10px;font-size:11px;cursor:pointer}
+  .small{font-size:10px;color:var(--muted)}
+  .danger{color:var(--down)!important}
+  @media (max-width:390px){.set-chip{min-width:76px}.start-list{grid-template-columns:1fr}.header-actions .icon-btn{padding:8px 8px}}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <div class="brand">IronLog</div>
-    <div class="env-toggle" id="envToggle">
-      <button data-env="home">Home</button>
-      <button data-env="gym">Gym</button>
+    <div class="header-row">
+      <div class="brand">IronLog V2</div>
+      <div class="header-actions">
+        <button class="icon-btn" id="historyBtn">History</button>
+        <button class="icon-btn" id="settingsBtn">Settings</button>
+      </div>
+    </div>
+    <div class="env-row">
+      <div>
+        <div class="env-toggle" id="envToggle">
+          <button data-env="home">Home</button>
+          <button data-env="gym">Gym</button>
+        </div>
+        <div class="env-lock" id="envLock"></div>
+      </div>
     </div>
   </header>
 
-  <div class="top-actions">
-    <button class="icon-btn" id="historyBtn">History</button>
-  </div>
-
+  <div id="migrationBanner"></div>
   <div class="day-plate-row" id="dayPlateRow"></div>
+  <div class="progress-wrap" id="progressWrap" style="display:none;"></div>
 
   <main>
-    <div class="view active" id="workoutView">
-      <div class="loading" id="loadingMsg">Loading your split…</div>
-    </div>
+    <div class="view active" id="workoutView"></div>
     <div class="view" id="summaryView"></div>
     <div class="view" id="historyView"></div>
+    <div class="view" id="settingsView"></div>
   </main>
+</div>
 
-  <div class="cta-bar" id="ctaBar" style="display:none;">
-    <div class="cta-inner">
-      <button class="btn-ghost" id="backBtn" style="display:none;">Back</button>
-      <button class="btn-primary" id="mainBtn">Finish Day</button>
-    </div>
+<div class="timer" id="timerBar">
+  <div class="timer-main">
+    <div class="timer-label" id="timerLabel">Rest</div>
+    <div class="timer-time" id="timerTime">2:00</div>
+  </div>
+  <button id="timerAdd">+30 sec</button>
+  <button id="timerStop">Stop</button>
+</div>
+
+<div class="cta-bar" id="ctaBar">
+  <div class="cta-inner">
+    <button class="btn-ghost" id="backBtn" style="display:none;">Back</button>
+    <button class="btn-primary" id="mainBtn">Start Workout</button>
   </div>
 </div>
+<input type="file" id="importInput" accept="application/json,.json" style="display:none;">
 
 <script>
 (function(){
+  'use strict';
 
-  // ---------------- Workout definition ----------------
-  // Weights below are starting points seeded from the user's whiteboard log.
-  // Home dumbbells only exist at these fixed increments:
+  const V1_KEY = 'ironlog-state-v1';
+  const V2_KEY = 'ironlog-state-v2';
   const HOME_STEPS = [12,21,29,38,46,55,63,72,81,90];
-  function nearestHomeIndex(w){
-    let best=0, bestDiff=Infinity;
-    HOME_STEPS.forEach((v,i)=>{ const d=Math.abs(v-w); if(d<bestDiff){bestDiff=d; best=i;} });
-    return best;
-  }
-  function homeStep(w, dir){
-    const i = nearestHomeIndex(w);
-    const j = Math.min(HOME_STEPS.length-1, Math.max(0, i+dir));
-    return HOME_STEPS[j];
-  }
-  function gymStep(w, dir){
-    const rounded = Math.round(w/5)*5;
-    return Math.max(5, rounded + dir*5);
-  }
-  function roundToGym(w){ return Math.max(5, Math.round(w/5)*5); }
+  const DAY_ORDER = ['A','B','C'];
+
+  const EXERCISES = {
+    'db-bench': {name:'DB Bench Press', repMin:6, repMax:12, rest:150, type:'compound', defaultHome:63, defaultGym:65},
+    'one-arm-row': {name:'1-Arm DB Row', repMin:6, repMax:12, rest:150, type:'compound', defaultHome:63, defaultGym:65},
+    'bulgarian-split-squat': {name:'Bulgarian Split Squat', repMin:6, repMax:12, rest:150, type:'compound', defaultHome:29, defaultGym:30},
+    'incline-press': {name:'Incline DB Press', repMin:6, repMax:12, rest:150, type:'compound', defaultHome:46, defaultGym:45},
+    'lateral-raise': {name:'Lateral Raise', repMin:12, repMax:25, rest:75, type:'isolation', defaultHome:12, defaultGym:15, extension:8},
+    'db-curl': {name:'DB Curl', repMin:8, repMax:15, rest:90, type:'isolation', defaultHome:21, defaultGym:20, extension:5},
+    'oh-tricep-ext': {name:'Overhead Tricep Extension', repMin:8, repMax:15, rest:90, type:'isolation', defaultHome:29, defaultGym:30, extension:5},
+    'ab-wheel': {name:'Ab Wheel', repMin:8, repMax:15, rest:75, type:'bodyweight', bodyweight:true, extension:5},
+    'db-rdl': {name:'DB Romanian Deadlift', repMin:6, repMax:12, rest:180, type:'compound', defaultHome:38, defaultGym:40},
+    'goblet-squat': {name:'Goblet Squat', repMin:8, repMax:15, rest:120, type:'moderate', defaultHome:29, defaultGym:30},
+    'chest-supported-row': {name:'Chest-Supported DB Row', repMin:6, repMax:12, rest:150, type:'compound', defaultHome:21, defaultGym:25},
+    'seated-press': {name:'Seated DB Press', repMin:6, repMax:12, rest:120, type:'compound', defaultHome:38, defaultGym:40},
+    'db-pullover': {name:'DB Pullover', repMin:8, repMax:15, rest:120, type:'moderate', defaultHome:29, defaultGym:30},
+    'rear-delt-raise': {name:'Rear-Delt Raise', repMin:12, repMax:25, rest:75, type:'isolation', defaultHome:12, defaultGym:15, extension:8},
+    'calf-raise': {name:'Standing DB Calf Raise', repMin:10, repMax:25, rest:75, type:'isolation', defaultHome:12, defaultGym:15, extension:8},
+    'reverse-lunge': {name:'Reverse Lunge (per leg)', repMin:8, repMax:15, rest:120, type:'moderate', defaultHome:29, defaultGym:30},
+    'hammer-curl': {name:'Hammer Curl', repMin:8, repMax:15, rest:90, type:'isolation', defaultHome:21, defaultGym:20, extension:5},
+    'close-db-press': {name:'Close-Grip DB Press', repMin:8, repMax:15, rest:120, type:'moderate', defaultHome:38, defaultGym:40}
+  };
 
   const WORKOUT = {
-    A: {label:'Day A', sub:'Chest / Shoulders / Arms', exercises:[
-      {id:'db-bench', name:'DB Bench Press', sets:4, baseReps:8, home:63},
-      {id:'db-row', name:'DB Row', sets:4, baseReps:8, home:65},
-      {id:'incline-press', name:'Incline Press', sets:3, baseReps:10, home:46},
-      {id:'seated-press', name:'Seated Press', sets:3, baseReps:10, home:38},
-      {id:'lateral-raise', name:'Lateral Raise', sets:3, baseReps:15, home:12},
-      {id:'db-curl', name:'DB Curl', sets:3, baseReps:10, home:21},
-      {id:'oh-tricep-ext', name:'Overhead Tricep Extension', sets:3, baseReps:10, home:29},
-      {id:'tricep-dip', name:'Tricep Dip', sets:3, baseReps:10, bodyweight:true},
-      {id:'ab-roll-a', name:'Ab Roll', sets:3, baseReps:10, bodyweight:true},
+    A: {label:'Day A', sub:'Upper + Quads', slots:[
+      {id:'A-db-bench', ex:'db-bench', sets:3, legacy:'db-bench'},
+      {id:'A-one-arm-row', ex:'one-arm-row', sets:3, legacy:'db-row'},
+      {id:'A-bulgarian', ex:'bulgarian-split-squat', sets:3, legacy:'bulgarian-split-squat'},
+      {id:'A-incline', ex:'incline-press', sets:2, legacy:'incline-press'},
+      {id:'A-lateral', ex:'lateral-raise', sets:2, legacy:'lateral-raise'},
+      {id:'A-curl', ex:'db-curl', sets:2, legacy:'db-curl'},
+      {id:'A-tricep', ex:'oh-tricep-ext', sets:2, legacy:'oh-tricep-ext'},
+      {id:'A-ab', ex:'ab-wheel', sets:2, legacy:'ab-roll-a'}
     ]},
-    B: {label:'Day B', sub:'Legs', exercises:[
-      {id:'bulgarian-split-squat', name:'Bulgarian Split Squat', sets:4, baseReps:8, home:29},
-      {id:'db-rom-deadlift-b', name:'DB Romanian Deadlift', sets:4, baseReps:10, home:38},
-      {id:'goblet-squat', name:'Goblet Squat', sets:3, baseReps:15, home:12},
-      {id:'lunge', name:'Lunge (per leg)', sets:3, baseReps:10, home:29},
-      {id:'calf-raise', name:'Calf Raise', sets:4, baseReps:20, home:12},
-      {id:'ab-roll-b', name:'Ab Roll', sets:3, baseReps:10, bodyweight:true},
+    B: {label:'Day B', sub:'Lower / Posterior + Back', slots:[
+      {id:'B-rdl', ex:'db-rdl', sets:3, legacy:'db-rom-deadlift-b'},
+      {id:'B-goblet', ex:'goblet-squat', sets:3, legacy:'goblet-squat'},
+      {id:'B-chest-row', ex:'chest-supported-row', sets:3, legacy:'chest-row'},
+      {id:'B-seated', ex:'seated-press', sets:2, legacy:'seated-press'},
+      {id:'B-pullover', ex:'db-pullover', sets:2, legacy:null},
+      {id:'B-rear-delt', ex:'rear-delt-raise', sets:2, legacy:null},
+      {id:'B-calf', ex:'calf-raise', sets:2, legacy:'calf-raise'},
+      {id:'B-ab', ex:'ab-wheel', sets:2, legacy:'ab-roll-b'}
     ]},
-    C: {label:'Day C', sub:'Push / Pull / Arms', exercises:[
-      {id:'incline-press-c', name:'Incline Press', sets:4, baseReps:8, home:55},
-      {id:'chest-row', name:'Chest-Supported Row', sets:4, baseReps:8, home:21},
-      {id:'db-rom-deadlift-c', name:'DB Romanian Deadlift', sets:3, baseReps:10, home:38},
-      {id:'seated-press-c', name:'Seated Press', sets:3, baseReps:10, home:38},
-      {id:'lateral-raise-c', name:'Lateral Raise', sets:3, baseReps:15, home:12},
-      {id:'hammer-curl', name:'Hammer Curl', sets:3, baseReps:12, home:21},
-      {id:'close-db-press', name:'Close-Grip DB Press', sets:3, baseReps:10, home:38},
-      {id:'ab-roller-c', name:'Ab Roller', sets:3, baseReps:10, bodyweight:true},
-    ]},
+    C: {label:'Day C', sub:'Full Body / Upper Emphasis', slots:[
+      {id:'C-incline', ex:'incline-press', sets:3, legacy:'incline-press-c'},
+      {id:'C-chest-row', ex:'chest-supported-row', sets:3, legacy:'chest-row'},
+      {id:'C-reverse-lunge', ex:'reverse-lunge', sets:3, legacy:'lunge'},
+      {id:'C-rdl', ex:'db-rdl', sets:2, legacy:'db-rom-deadlift-c'},
+      {id:'C-lateral', ex:'lateral-raise', sets:2, legacy:'lateral-raise-c'},
+      {id:'C-hammer', ex:'hammer-curl', sets:2, legacy:'hammer-curl'},
+      {id:'C-close-press', ex:'close-db-press', sets:2, legacy:'close-db-press'},
+      {id:'C-calf', ex:'calf-raise', sets:2, legacy:'calf-raise'},
+      {id:'C-ab', ex:'ab-wheel', sets:2, legacy:'ab-roller-c'}
+    ]}
   };
-  const DAY_ORDER = ['A','B','C'];
-  const STORAGE_KEY = 'ironlog-state-v1';
 
-  // ---------------- State ----------------
-  let state = null;
-
-  function buildDefaultState(){
-    const exerciseState = {};
-    DAY_ORDER.forEach(d=>{
-      WORKOUT[d].exercises.forEach(ex=>{
-        if(ex.bodyweight){
-          exerciseState[ex.id] = {repTarget: ex.baseReps};
-        } else {
-          exerciseState[ex.id] = {
-            repTarget: ex.baseReps,
-            homeWeight: ex.home,
-            gymWeight: roundToGym(ex.home)
-          };
-        }
-      });
-    });
-    return {
-      dayIndex: 0,
-      environment: 'home',
-      exerciseState,
-      history: []
-    };
-  }
-
-  async function loadState(){
-    try{
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if(raw) return JSON.parse(raw);
-      return null;
-    }catch(e){
-      return null;
-    }
-  }
-  async function saveState(){
-    try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }catch(e){
-      console.error('Save failed', e);
-    }
-  }
-
-  // ---------------- Rendering ----------------
   const workoutView = document.getElementById('workoutView');
   const summaryView = document.getElementById('summaryView');
   const historyView = document.getElementById('historyView');
+  const settingsView = document.getElementById('settingsView');
   const dayPlateRow = document.getElementById('dayPlateRow');
+  const progressWrap = document.getElementById('progressWrap');
+  const migrationBanner = document.getElementById('migrationBanner');
+  const envToggle = document.getElementById('envToggle');
+  const envLock = document.getElementById('envLock');
+  const historyBtn = document.getElementById('historyBtn');
+  const settingsBtn = document.getElementById('settingsBtn');
   const ctaBar = document.getElementById('ctaBar');
   const mainBtn = document.getElementById('mainBtn');
   const backBtn = document.getElementById('backBtn');
-  const envToggle = document.getElementById('envToggle');
-  const historyBtn = document.getElementById('historyBtn');
+  const timerBar = document.getElementById('timerBar');
+  const timerTime = document.getElementById('timerTime');
+  const timerLabel = document.getElementById('timerLabel');
+  const timerAdd = document.getElementById('timerAdd');
+  const timerStop = document.getElementById('timerStop');
+  const importInput = document.getElementById('importInput');
 
-  let currentSetLogs = {}; // exId -> array of logged reps
-  let mode = 'workout'; // workout | summary | history
+  let state = null;
+  let mode = 'workout';
+  let timerInterval = null;
+  let timerEnd = null;
+  let audioCtx = null;
 
-  function currentDayKey(){ return DAY_ORDER[state.dayIndex]; }
-  function nextDayKey(){ return DAY_ORDER[(state.dayIndex+1)%3]; }
+  function clamp(n,min,max){ return Math.min(max,Math.max(min,n)); }
+  function sum(a){ return a.reduce((x,y)=>x+y,0); }
+  function currentDay(){ return DAY_ORDER[state.dayIndex] || 'A'; }
+  function nextDay(day){ return DAY_ORDER[(DAY_ORDER.indexOf(day)+1)%DAY_ORDER.length]; }
+  function fmtDate(iso){ return new Date(iso).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
+  function fmtTime(iso){ return new Date(iso).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}); }
+
+  function nearestHomeWeight(w){
+    let best=HOME_STEPS[0], diff=Infinity;
+    HOME_STEPS.forEach(v=>{ const d=Math.abs(v-w); if(d<diff){diff=d;best=v;} });
+    return best;
+  }
+  function nextWeight(weight,env){
+    if(env==='gym') return Math.max(5,Math.round(weight/5)*5 + 5);
+    const i=HOME_STEPS.indexOf(nearestHomeWeight(weight));
+    return HOME_STEPS[Math.min(HOME_STEPS.length-1,i+1)];
+  }
+  function prevWeight(weight,env){
+    if(env==='gym') return Math.max(5,Math.round(weight/5)*5 - 5);
+    const i=HOME_STEPS.indexOf(nearestHomeWeight(weight));
+    return HOME_STEPS[Math.max(0,i-1)];
+  }
+  function normalizedWeight(w,env){
+    const n=parseFloat(w);
+    if(!isFinite(n) || n<=0) return null;
+    return env==='home' ? nearestHomeWeight(n) : Math.max(5,Math.round(n/5)*5);
+  }
+
+  function defaultTarget(ex){
+    if(ex.repMin===6) return 8;
+    if(ex.repMin===8) return 10;
+    if(ex.repMin===10) return 15;
+    if(ex.repMin===12) return 15;
+    return ex.repMin;
+  }
+
+  function makeEnvSlot(slot,env,legacyState){
+    const ex=EXERCISES[slot.ex];
+    const legacy = legacyState && slot.legacy ? legacyState[slot.legacy] : null;
+    const legacyRep = legacy && Number.isFinite(Number(legacy.repTarget)) ? Number(legacy.repTarget) : null;
+    let weight = null;
+    if(!ex.bodyweight){
+      const legacyW = legacy ? (env==='home' ? legacy.homeWeight : legacy.gymWeight) : null;
+      weight = normalizedWeight(legacyW || (env==='home' ? ex.defaultHome : ex.defaultGym), env);
+    }
+    const targetReps = clamp(legacyRep || defaultTarget(ex), ex.repMin, ex.repMax + (ex.extension||0));
+    return {weight, targetTotal:targetReps*slot.sets, lastPerformance:null, badStreak:0, lastNote:''};
+  }
+
+  function buildDefaultState(legacy){
+    const legacyEx = legacy && legacy.exerciseState ? legacy.exerciseState : null;
+    const slotState={};
+    DAY_ORDER.forEach(day=>{
+      WORKOUT[day].slots.forEach(slot=>{
+        slotState[slot.id]={
+          home:makeEnvSlot(slot,'home',legacyEx),
+          gym:makeEnvSlot(slot,'gym',legacyEx)
+        };
+      });
+    });
+    const legacyHistory = legacy && Array.isArray(legacy.history) ? legacy.history.map(h=>({legacy:true,...h})) : [];
+    return {
+      version:2,
+      dayIndex: legacy && Number.isInteger(legacy.dayIndex) ? clamp(legacy.dayIndex,0,2) : 0,
+      environment: legacy && (legacy.environment==='gym' || legacy.environment==='home') ? legacy.environment : 'home',
+      slotState,
+      activeSession:null,
+      history:[],
+      legacyHistory,
+      settings:{sound:true,vibration:true},
+      migrationNotice:!!legacy,
+      createdAt:new Date().toISOString()
+    };
+  }
+
+  function validateV2(s){
+    return s && s.version===2 && s.slotState && Array.isArray(s.history) && s.settings;
+  }
+
+  function loadState(){
+    try{
+      const raw=localStorage.getItem(V2_KEY);
+      if(raw){
+        const parsed=JSON.parse(raw);
+        if(validateV2(parsed)) return parsed;
+      }
+    }catch(e){ console.error('V2 load failed',e); }
+    let legacy=null;
+    try{
+      const raw1=localStorage.getItem(V1_KEY);
+      if(raw1) legacy=JSON.parse(raw1);
+    }catch(e){ console.error('V1 load failed',e); }
+    const fresh=buildDefaultState(legacy);
+    try{ localStorage.setItem(V2_KEY,JSON.stringify(fresh)); }catch(e){}
+    return fresh;
+  }
+
+  function saveState(){
+    try{ localStorage.setItem(V2_KEY,JSON.stringify(state)); }
+    catch(e){ console.error('Save failed',e); alert('IronLog could not save locally. Export a backup before continuing.'); }
+  }
+
+  function ensureStateShape(){
+    if(!state.settings) state.settings={sound:true,vibration:true};
+    if(!Array.isArray(state.history)) state.history=[];
+    if(!Array.isArray(state.legacyHistory)) state.legacyHistory=[];
+    DAY_ORDER.forEach(day=>WORKOUT[day].slots.forEach(slot=>{
+      if(!state.slotState[slot.id]) state.slotState[slot.id]={home:makeEnvSlot(slot,'home',null),gym:makeEnvSlot(slot,'gym',null)};
+      ['home','gym'].forEach(env=>{
+        if(!state.slotState[slot.id][env]) state.slotState[slot.id][env]=makeEnvSlot(slot,env,null);
+      });
+    }));
+  }
+
+  function distributeTotal(total,sets,minRep,maxRep){
+    total=Math.max(0,Math.round(total));
+    const base=Math.floor(total/sets);
+    let rem=total-base*sets;
+    const arr=[];
+    for(let i=0;i<sets;i++) arr.push(clamp(base+(i<rem?1:0),0,maxRep));
+    // Prefer earlier sets slightly higher if clamping caused a shortfall.
+    let diff=total-sum(arr);
+    let guard=0;
+    while(diff>0 && guard<100){
+      for(let i=0;i<sets && diff>0;i++){
+        if(arr[i]<maxRep){arr[i]++;diff--;}
+      }
+      guard++;
+    }
+    return arr;
+  }
+
+  function effectiveMax(ex,weight,env){
+    if(ex.bodyweight) return ex.repMax + (ex.extension||5);
+    const nw=nextWeight(weight,env);
+    if(nw===weight) return ex.repMax + (ex.extension||4);
+    const jump=(nw-weight)/weight;
+    const threshold = ex.type==='compound' ? .15 : ex.type==='moderate' ? .20 : .25;
+    return jump>threshold ? ex.repMax + (ex.extension||5) : ex.repMax;
+  }
+
+  function createActiveSession(){
+    const day=currentDay();
+    const env=state.environment;
+    const items=WORKOUT[day].slots.map(slot=>{
+      const ex=EXERCISES[slot.ex];
+      const ss=state.slotState[slot.id][env];
+      const max=effectiveMax(ex,ss.weight,env);
+      const targetTotal=ss.targetTotal || defaultTarget(ex)*slot.sets;
+      const suggested=distributeTotal(targetTotal,slot.sets,ex.repMin,max);
+      return {
+        slotId:slot.id, exerciseId:slot.ex, sets:suggested.map((r,i)=>({index:i,reps:r,done:false})),
+        weight:ex.bodyweight?null:ss.weight, status:'active', rir:null, reason:null,
+        startedTargetTotal:targetTotal, nextPlan:null
+      };
+    });
+    state.activeSession={
+      id:'s-'+Date.now(), day, environment:env, startedAt:new Date().toISOString(), items, restTimer:null
+    };
+    saveState();
+    stopRestTimer(false);
+    renderAll();
+  }
+
+  function getSlot(slotId){
+    for(const day of DAY_ORDER){
+      const found=WORKOUT[day].slots.find(s=>s.id===slotId);
+      if(found) return found;
+    }
+    return null;
+  }
+
+  function getItem(slotId){
+    return state.activeSession ? state.activeSession.items.find(i=>i.slotId===slotId) : null;
+  }
+
+  function progressionPlan(slot,item){
+    const ex=EXERCISES[slot.ex];
+    const env=state.activeSession.environment;
+    const ss=state.slotState[slot.id][env];
+    const reps=item.sets.map(s=>Number(s.reps)||0);
+    const total=sum(reps);
+    const avg=total/reps.length;
+    const minRep=Math.min(...reps);
+    const maxForNow=effectiveMax(ex,item.weight,env);
+    const rir=item.rir;
+    let badStreak=ss.badStreak||0;
+    let newWeight=item.weight;
+    let targetTotal=total;
+    let note='Repeat this load and own the performance.';
+    let direction='hold';
+
+    const severeMiss = avg < ex.repMin || minRep < Math.max(1,ex.repMin-2);
+    badStreak = severeMiss ? badStreak+1 : 0;
+
+    if(!ex.bodyweight && severeMiss && badStreak>=2){
+      const lower=prevWeight(item.weight,env);
+      if(lower<item.weight){
+        newWeight=lower;
+        targetTotal=Math.max(ex.repMin*slot.sets, Math.round((ex.repMin+1)*slot.sets));
+        badStreak=0;
+        direction='down';
+        note=`Two tough exposures in a row — use ${newWeight} lb next time and rebuild with clean reps.`;
+        return {weight:newWeight,targetTotal,badStreak,note,direction,lastPerformance:{weight:item.weight,reps,rir,total,date:new Date().toISOString()}};
+      }
+    }
+
+    const allAtTop = reps.every(r=>r>=maxForNow);
+    if(!ex.bodyweight && allAtTop && rir!=='0'){
+      const nw=nextWeight(item.weight,env);
+      if(nw>item.weight){
+        newWeight=nw;
+        targetTotal=(ex.repMin+1)*slot.sets;
+        direction='up';
+        note=`You owned ${item.weight} lb across the full range — move to ${newWeight} lb next time and rebuild near the low end.`;
+        return {weight:newWeight,targetTotal,badStreak:0,note,direction,lastPerformance:{weight:item.weight,reps,rir,total,date:new Date().toISOString()}};
+      }
+    }
+
+    if(ex.bodyweight && allAtTop && rir!=='0'){
+      targetTotal=maxForNow*slot.sets;
+      direction='hold';
+      note=`You are at the top of the current bodyweight range. Repeat it with control; a harder variation can be added later if needed.`;
+    } else if(rir==='3+'){
+      targetTotal=Math.min(total+2,maxForNow*slot.sets);
+      direction=targetTotal>total?'up':'hold';
+      note=targetTotal>total ? `You had 3+ reps left — keep the same load and add about 2 total reps next time.` : `Stay here and make the reps cleaner before adding load.`;
+    } else if(rir==='1-2'){
+      targetTotal=Math.min(total+1,maxForNow*slot.sets);
+      direction=targetTotal>total?'up':'hold';
+      note=targetTotal>total ? `Good working effort — same load next time, with a goal of 1 more total rep.` : `You are at the top of this load's useful range; repeat once more with 1–2 reps in reserve.`;
+    } else {
+      targetTotal=total;
+      direction='hold';
+      note=`You finished at 0 reps in reserve — repeat the same load and aim to match these reps with a little more margin.`;
+    }
+
+    if(severeMiss && badStreak===1){
+      targetTotal=Math.max(total,ex.repMin*slot.sets);
+      direction='hold';
+      note=`Off day or load was aggressive — repeat it once before IronLog considers lowering the weight.`;
+    }
+
+    return {weight:newWeight,targetTotal,badStreak,note,direction,lastPerformance:{weight:item.weight,reps,rir,total,date:new Date().toISOString()}};
+  }
+
+  function completeExercise(slotId){
+    const slot=getSlot(slotId), item=getItem(slotId);
+    if(!slot || !item) return;
+    if(!item.sets.every(s=>s.done) || !item.rir) return;
+    item.nextPlan=progressionPlan(slot,item);
+    item.status='complete';
+    saveState();
+    renderWorkout();
+    updateProgress();
+  }
+
+  function reopenExercise(slotId){
+    const item=getItem(slotId); if(!item) return;
+    item.status='active'; item.nextPlan=null; item.reason=null;
+    saveState(); renderWorkout(); updateProgress();
+  }
+
+  function skipExercise(slotId,reason){
+    const item=getItem(slotId); if(!item) return;
+    item.status='skipped'; item.reason=reason; item.nextPlan=null;
+    saveState(); renderWorkout(); updateProgress();
+  }
+
+  function finishWorkout(){
+    if(!state.activeSession){ createActiveSession(); return; }
+    const incomplete=state.activeSession.items.filter(i=>i.status==='active');
+    if(incomplete.length){
+      const ok=confirm(`${incomplete.length} exercise${incomplete.length===1?' is':'s are'} incomplete. Finish anyway? They will be saved as skipped and will NOT affect progression.`);
+      if(!ok) return;
+      incomplete.forEach(i=>{i.status='skipped';i.reason='Skipped when workout finished';});
+    }
+
+    const session=state.activeSession;
+    const historyItems=[];
+    session.items.forEach(item=>{
+      const slot=getSlot(item.slotId);
+      const ex=EXERCISES[item.exerciseId];
+      if(item.status==='complete' && item.nextPlan){
+        const ss=state.slotState[item.slotId][session.environment];
+        ss.weight=item.nextPlan.weight;
+        ss.targetTotal=item.nextPlan.targetTotal;
+        ss.badStreak=item.nextPlan.badStreak;
+        ss.lastPerformance=item.nextPlan.lastPerformance;
+        ss.lastNote=item.nextPlan.note;
+      }
+      historyItems.push({
+        slotId:item.slotId, exerciseId:item.exerciseId, name:ex.name,
+        weight:item.weight, reps:item.sets.map(s=>s.reps), status:item.status,
+        rir:item.rir, reason:item.reason, nextPlan:item.nextPlan
+      });
+    });
+
+    const finished={id:session.id,date:new Date().toISOString(),startedAt:session.startedAt,day:session.day,environment:session.environment,items:historyItems};
+    state.history.unshift(finished);
+    if(state.history.length>120) state.history.length=120;
+    state.activeSession=null;
+    state.dayIndex=(state.dayIndex+1)%3;
+    saveState();
+    stopRestTimer(false);
+    renderSummary(finished);
+  }
 
   function setEnvButtons(){
+    const locked=!!state.activeSession;
+    envToggle.classList.toggle('locked',locked);
     envToggle.querySelectorAll('button').forEach(b=>{
-      b.classList.toggle('active', b.dataset.env === state.environment);
+      const env=locked?state.activeSession.environment:state.environment;
+      b.classList.toggle('active',b.dataset.env===env);
+      b.disabled=locked;
     });
+    envLock.textContent=locked ? `${state.activeSession.environment.toUpperCase()} locked for this workout` : '';
   }
 
   function renderDayPlate(){
-    const day = currentDayKey();
-    const info = WORKOUT[day];
-    dayPlateRow.innerHTML = `
+    const day=state.activeSession ? state.activeSession.day : currentDay();
+    const info=WORKOUT[day];
+    const env=state.activeSession ? state.activeSession.environment : state.environment;
+    dayPlateRow.innerHTML=`
       <div class="plate">${day}</div>
       <div class="day-meta">
         <h1>${info.label}</h1>
-        <p>${info.sub} · next up: Day ${nextDayKey()}</p>
-      </div>
-    `;
+        <p>${info.sub} · ${env==='home'?'Home dumbbells':'Gym dumbbells'} · next up: Day ${nextDay(day)}</p>
+      </div>`;
   }
 
-  function weightFor(ex){
-    const es = state.exerciseState[ex.id];
-    return state.environment === 'home' ? es.homeWeight : es.gymWeight;
+  function updateProgress(){
+    if(!state.activeSession){ progressWrap.style.display='none'; return; }
+    const done=state.activeSession.items.filter(i=>i.status!=='active').length;
+    const total=state.activeSession.items.length;
+    const pct=Math.round(done/total*100);
+    progressWrap.style.display='block';
+    progressWrap.innerHTML=`<div class="progress-line"><span>${done} of ${total} exercises closed</span><span>${pct}%</span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>`;
+  }
+
+  function goalText(slot,item){
+    const ex=EXERCISES[slot.ex];
+    const env=state.activeSession.environment;
+    const ss=state.slotState[slot.id][env];
+    const lp=ss.lastPerformance;
+    const target=item.startedTargetTotal;
+    if(lp && lp.weight===item.weight){
+      return `<strong>Today's goal:</strong> ${target>lp.total?`beat ${lp.total} total reps`:`match ${target} total reps with better margin`} · range ${ex.repMin}–${effectiveMax(ex,item.weight,env)}`;
+    }
+    if(lp && lp.weight!==item.weight){
+      return `<strong>Today's goal:</strong> own the new load · target about ${target} total reps · range ${ex.repMin}–${effectiveMax(ex,item.weight,env)}`;
+    }
+    return `<strong>Today's goal:</strong> ${target} total reps · working range ${ex.repMin}–${effectiveMax(ex,item.weight,env)} · finish most sets with 1–3 reps left`;
   }
 
   function renderWorkout(){
     mode='workout';
+    [workoutView,summaryView,historyView,settingsView].forEach(v=>v.classList.remove('active'));
     workoutView.classList.add('active');
-    summaryView.classList.remove('active');
-    historyView.classList.remove('active');
-    ctaBar.style.display = 'flex';
-    backBtn.style.display = 'none';
-    mainBtn.textContent = 'Finish ' + WORKOUT[currentDayKey()].label;
+    backBtn.style.display='none';
 
-    const day = currentDayKey();
-    const exercises = WORKOUT[day].exercises;
-    currentSetLogs = {};
-
-    let html = '';
-    exercises.forEach(ex=>{
-      const es = state.exerciseState[ex.id];
-      const target = es.repTarget;
-      currentSetLogs[ex.id] = new Array(ex.sets).fill(target);
-
-      let weightHtml = '';
-      if(ex.bodyweight){
-        weightHtml = `<div class="weight-box"><div class="bodyweight-tag">Bodyweight</div></div>`;
-      } else {
-        const w = weightFor(ex);
-        weightHtml = `
-          <div class="weight-box">
-            <div class="weight-val" id="wv-${ex.id}">${w}<span class="weight-unit"> lb</span></div>
-            <button class="weight-edit" data-exid="${ex.id}">edit</button>
-          </div>`;
-      }
-
-      let chips = '';
-      for(let s=0; s<ex.sets; s++){
-        chips += `
-          <div class="set-chip">
-            <div class="lbl">Set ${s+1}</div>
-            <div class="stepper">
-              <button data-act="dec" data-exid="${ex.id}" data-set="${s}">–</button>
-              <div class="n" id="n-${ex.id}-${s}">${target}</div>
-              <button data-act="inc" data-exid="${ex.id}" data-set="${s}">+</button>
-            </div>
-          </div>`;
-      }
-
-      html += `
-        <div class="card">
-          <div class="card-top">
-            <div>
-              <div class="ex-name">${ex.name}</div>
-              <div class="ex-sub">${ex.sets} sets × ${target} reps target</div>
-            </div>
-            ${weightHtml}
-          </div>
-          <div class="sets-row">${chips}</div>
-        </div>
-      `;
-    });
-
-    workoutView.innerHTML = html;
-
-    // wire steppers
-    workoutView.querySelectorAll('.stepper button').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const exid = btn.dataset.exid, s = parseInt(btn.dataset.set), act = btn.dataset.act;
-        let v = currentSetLogs[exid][s];
-        v = act === 'inc' ? v+1 : Math.max(0, v-1);
-        currentSetLogs[exid][s] = v;
-        document.getElementById(`n-${exid}-${s}`).textContent = v;
-      });
-    });
-
-    // wire weight edit
-    workoutView.querySelectorAll('.weight-edit').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const exid = btn.dataset.exid;
-        const es = state.exerciseState[exid];
-        const cur = state.environment === 'home' ? es.homeWeight : es.gymWeight;
-        const val = prompt('Set current working weight (lb):', cur);
-        if(val === null) return;
-        const num = parseFloat(val);
-        if(isNaN(num) || num <= 0) return;
-        if(state.environment === 'home'){
-          es.homeWeight = homeStep(num, 0);
-        } else {
-          es.gymWeight = roundToGym(num);
-        }
-        saveState();
-        renderWorkout();
-      });
-    });
-  }
-
-  function computeNext(ex, actualReps, repTarget){
-    const allMet = actualReps.every(r => r >= repTarget);
-    const avg = actualReps.reduce((a,b)=>a+b,0)/actualReps.length;
-    const cap = ex.baseReps + 2;
-    let result = {repTarget, weightDelta: 0, note: 'Repeat — same weight & reps.', dir:'hold'};
-
-    if(allMet){
-      if(repTarget < cap){
-        result = {repTarget: repTarget+1, weightDelta:0, note:`Nailed it — add a rep next time (target ${repTarget+1}).`, dir:'up'};
-      } else {
-        result = {repTarget: ex.baseReps, weightDelta:1, note:'Capped out on reps — weight goes up, reps reset.', dir:'up'};
-      }
-    } else if(avg < repTarget * 0.7){
-      result = {repTarget: ex.baseReps, weightDelta:-1, note:'Missed by a lot — dropping weight next time.', dir:'down'};
+    if(!state.activeSession){
+      const day=currentDay();
+      const info=WORKOUT[day];
+      mainBtn.textContent=`Start ${info.label}`;
+      const names=info.slots.map(s=>EXERCISES[s.ex].name);
+      workoutView.innerHTML=`
+        <div class="start-card">
+          <h2>${info.label} · ${info.sub}</h2>
+          <p>About 45–60 minutes. IronLog will lock the selected environment, save every action, time your rests, and build the next prescription from your actual performance.</p>
+          <div class="start-list">${names.map(n=>`<div>${n}</div>`).join('')}</div>
+        </div>`;
+      updateProgress();
+      return;
     }
-    return result;
-  }
 
-  function finishWorkout(){
-    const day = currentDayKey();
-    const exercises = WORKOUT[day].exercises;
-    const entries = [];
-
-    exercises.forEach(ex=>{
-      const es = state.exerciseState[ex.id];
-      const actual = currentSetLogs[ex.id];
-      const target = es.repTarget;
-      const result = computeNext(ex, actual, target);
-
-      let weightNote = '';
-      if(!ex.bodyweight){
-        if(result.weightDelta !== 0){
-          const dir = result.weightDelta;
-          if(state.environment === 'home'){
-            es.homeWeight = homeStep(es.homeWeight, dir);
-          } else {
-            es.gymWeight = gymStep(es.gymWeight, dir);
-          }
-          // keep the other environment's weight untouched — tracked independently
-        }
-        const newW = state.environment === 'home' ? es.homeWeight : es.gymWeight;
-        weightNote = `${newW} lb`;
-      } else {
-        weightNote = 'bodyweight';
+    mainBtn.textContent='Finish Workout';
+    const day=state.activeSession.day;
+    let html='';
+    WORKOUT[day].slots.forEach(slot=>{
+      const item=getItem(slot.id); const ex=EXERCISES[slot.ex];
+      const cls=item.status==='complete'?' complete':item.status==='skipped'?' skipped':'';
+      const weightHtml=ex.bodyweight
+        ? `<div class="weight-box"><div class="bodyweight-tag">Bodyweight</div></div>`
+        : `<div class="weight-box"><div class="weight-val">${item.weight}<span class="weight-unit"> lb</span></div>${item.status==='active'?`<button class="weight-edit" data-weight="${slot.id}">edit</button>`:''}</div>`;
+      const setHtml=item.sets.map((s,i)=>`
+        <div class="set-chip ${s.done?'done':''}">
+          <div class="lbl">Set ${i+1}</div>
+          <div class="stepper">
+            <button data-step="dec" data-slot="${slot.id}" data-set="${i}" ${item.status!=='active'?'disabled':''}>−</button>
+            <div class="n">${s.reps}</div>
+            <button data-step="inc" data-slot="${slot.id}" data-set="${i}" ${item.status!=='active'?'disabled':''}>+</button>
+          </div>
+          <button class="set-done" data-setdone="${slot.id}" data-set="${i}" ${item.status!=='active'?'disabled':''}>${s.done?'✓ Done':'Mark set done'}</button>
+        </div>`).join('');
+      const rirHtml=item.status==='active' ? `
+        <div class="rir-wrap">
+          <div class="rir-label">After the final set: how many clean reps were left?</div>
+          <div class="rir-buttons">
+            ${['3+','1-2','0'].map(r=>`<button data-rir="${r}" data-slot="${slot.id}" class="${item.rir===r?'active':''}">${r==='3+'?'3+ left':r==='1-2'?'1–2 left':'0 left'}</button>`).join('')}
+          </div>
+        </div>` : '';
+      const actionHtml=item.status==='active' ? `
+        <div class="exercise-actions">
+          <button class="secondary" data-skip="${slot.id}">Skip / issue</button>
+          <button class="complete-ex" data-complete="${slot.id}" ${item.sets.every(s=>s.done)&&item.rir?'':'disabled'}>Complete Exercise</button>
+        </div>` : `
+        <div class="exercise-actions"><button class="secondary" data-reopen="${slot.id}">Reopen</button></div>`;
+      let next='';
+      if(item.status==='complete' && item.nextPlan){
+        const p=item.nextPlan;
+        const w=ex.bodyweight?'bodyweight':`${p.weight} lb`;
+        next=`<div class="next-note"><strong>Next:</strong> ${w} · target ${p.targetTotal} total reps. ${p.note}</div>`;
+      } else if(item.status==='skipped'){
+        next=`<div class="next-note" style="color:var(--muted);background:var(--surface-alt);"><strong>Skipped:</strong> ${item.reason||'No progression change.'}</div>`;
       }
-      es.repTarget = result.repTarget;
-
-      entries.push({
-        id: ex.id, name: ex.name, reps: actual, target,
-        note: result.note, dir: result.dir, nextWeight: weightNote
-      });
+      html+=`
+        <div class="card${cls}">
+          <div class="card-top"><div><div class="ex-name">${ex.name}</div><div class="ex-sub">${slot.sets} sets · ${ex.repMin}–${effectiveMax(ex,item.weight,state.activeSession.environment)} rep working range · ${Math.round(ex.rest/60*10)/10} min rest</div></div>${weightHtml}</div>
+          <div class="goal-box">${goalText(slot,item)}</div>
+          <div class="sets-row">${setHtml}</div>
+          ${rirHtml}${actionHtml}${next}
+        </div>`;
     });
-
-    state.history.unshift({
-      date: new Date().toISOString(),
-      day, environment: state.environment,
-      entries
-    });
-    if(state.history.length > 60) state.history.length = 60;
-
-    state.dayIndex = (state.dayIndex+1) % 3;
-    saveState();
-    renderSummary(entries, day);
+    workoutView.innerHTML=html;
+    wireWorkoutEvents();
+    updateProgress();
   }
 
-  function renderSummary(entries, day){
+  function wireWorkoutEvents(){
+    workoutView.querySelectorAll('[data-step]').forEach(btn=>btn.addEventListener('click',()=>{
+      const item=getItem(btn.dataset.slot); if(!item || item.status!=='active') return;
+      const s=item.sets[Number(btn.dataset.set)];
+      s.reps = btn.dataset.step==='inc' ? s.reps+1 : Math.max(0,s.reps-1);
+      saveState(); renderWorkout();
+    }));
+    workoutView.querySelectorAll('[data-setdone]').forEach(btn=>btn.addEventListener('click',()=>{
+      const item=getItem(btn.dataset.setdone); if(!item || item.status!=='active') return;
+      const s=item.sets[Number(btn.dataset.set)];
+      s.done=!s.done;
+      saveState();
+      if(s.done){
+        const ex=EXERCISES[item.exerciseId];
+        startRestTimer(ex.rest,ex.name);
+      }
+      renderWorkout();
+    }));
+    workoutView.querySelectorAll('[data-rir]').forEach(btn=>btn.addEventListener('click',()=>{
+      const item=getItem(btn.dataset.slot); if(!item || item.status!=='active') return;
+      item.rir=btn.dataset.rir; saveState(); renderWorkout();
+    }));
+    workoutView.querySelectorAll('[data-complete]').forEach(btn=>btn.addEventListener('click',()=>completeExercise(btn.dataset.complete)));
+    workoutView.querySelectorAll('[data-reopen]').forEach(btn=>btn.addEventListener('click',()=>reopenExercise(btn.dataset.reopen)));
+    workoutView.querySelectorAll('[data-skip]').forEach(btn=>btn.addEventListener('click',()=>{
+      const slotId=btn.dataset.skip;
+      const choice=prompt('Type a reason: skipped, pain, form, equipment, or other. This exercise will NOT affect progression.','skipped');
+      if(choice===null) return;
+      skipExercise(slotId,choice.trim()||'skipped');
+    }));
+    workoutView.querySelectorAll('[data-weight]').forEach(btn=>btn.addEventListener('click',()=>{
+      const slotId=btn.dataset.weight, item=getItem(slotId), slot=getSlot(slotId);
+      if(!item || !slot) return;
+      const env=state.activeSession.environment;
+      const val=prompt(env==='home'?`Home options: ${HOME_STEPS.join(', ')} lb. Enter the closest weight:`:'Enter gym dumbbell weight (IronLog rounds to nearest 5 lb):',item.weight);
+      if(val===null) return;
+      const nw=normalizedWeight(val,env); if(!nw) return;
+      item.weight=nw;
+      state.slotState[slotId][env].weight=nw;
+      item.nextPlan=null;
+      saveState(); renderWorkout();
+    }));
+  }
+
+  function renderSummary(session){
     mode='summary';
-    workoutView.classList.remove('active');
-    historyView.classList.remove('active');
+    [workoutView,summaryView,historyView,settingsView].forEach(v=>v.classList.remove('active'));
     summaryView.classList.add('active');
-    ctaBar.style.display = 'flex';
-    backBtn.style.display = 'none';
-    mainBtn.textContent = `Start ${WORKOUT[currentDayKey()].label}`;
-
-    let rows = entries.map(e=>{
-      const arrow = e.dir==='up' ? '▲' : e.dir==='down' ? '▼' : '■';
-      const cls = e.dir==='up' ? 'up' : e.dir==='down' ? 'down' : '';
-      return `<div class="summary-row"><span>${arrow} ${e.name}</span><span class="${cls}">${e.nextWeight}</span></div>`;
+    backBtn.style.display='none';
+    mainBtn.textContent=`Start ${WORKOUT[currentDay()].label}`;
+    const rows=session.items.map(i=>{
+      const ex=EXERCISES[i.exerciseId];
+      if(i.status!=='complete') return `<div class="summary-row"><span>${ex.name}</span><span>Skipped · no change</span></div>`;
+      const p=i.nextPlan;
+      return `<div class="summary-row"><span>${ex.name}</span><span>${ex.bodyweight?'Bodyweight':p.weight+' lb'} · ${p.targetTotal} total next</span></div>`;
     }).join('');
-
-    summaryView.innerHTML = `
-      <div class="summary-card">
-        <h3>${WORKOUT[day].label} complete</h3>
-        ${rows}
-      </div>
-      <p style="color:var(--muted); font-size:12px; padding:0 4px;">Logged. Next time you open IronLog it'll have Day ${currentDayKey()} loaded and ready.</p>
-    `;
-
-    mainBtn.onclick = ()=>{ renderDayPlate(); renderWorkout(); mainBtn.onclick = finishWorkout; };
+    summaryView.innerHTML=`
+      <div class="summary-card"><h3>${WORKOUT[session.day].label} complete</h3><div class="small">${fmtDate(session.date)} · ${session.environment.toUpperCase()}</div>${rows}</div>
+      <div class="summary-card"><h3>What IronLog did</h3><p class="small">Completed exercises advanced only from your actual reps, final-set reps in reserve, recent trend, and the next available dumbbell. Skipped exercises did not change progression.</p></div>`;
+    renderDayPlate(); setEnvButtons(); updateProgress();
   }
 
   function renderHistory(){
     mode='history';
-    workoutView.classList.remove('active');
-    summaryView.classList.remove('active');
+    [workoutView,summaryView,historyView,settingsView].forEach(v=>v.classList.remove('active'));
     historyView.classList.add('active');
-    ctaBar.style.display = 'flex';
-    backBtn.style.display = 'inline-block';
-    mainBtn.textContent = 'Close History';
-
-    if(state.history.length === 0){
-      historyView.innerHTML = `<div class="empty">No sessions logged yet.<br>Finish a workout to start building history.</div>`;
-    } else {
-      historyView.innerHTML = state.history.map(h=>{
-        const d = new Date(h.date);
-        const dstr = d.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
-        const summary = h.entries.map(e=> `${e.name.split(' ')[0]} ${e.nextWeight}`).join(' · ');
-        return `<div class="hist-entry">
-          <div class="hdate">Day ${h.day} — ${dstr} <span style="color:var(--muted); font-weight:normal;">(${h.environment})</span></div>
-          <div class="hmeta">${summary}</div>
-        </div>`;
-      }).join('');
-    }
-
-    mainBtn.onclick = ()=>{ renderWorkout(); mainBtn.onclick = finishWorkout; };
-    backBtn.onclick = ()=>{ renderWorkout(); mainBtn.onclick = finishWorkout; };
+    backBtn.style.display='inline-block';
+    mainBtn.textContent='Close History';
+    const modern=state.history.map(h=>{
+      const done=h.items.filter(i=>i.status==='complete');
+      const summary=done.slice(0,5).map(i=>{
+        const ex=EXERCISES[i.exerciseId];
+        return `${ex.name}: ${ex.bodyweight?'BW':i.weight+' lb'} ${i.reps.join('/')}`;
+      }).join(' · ');
+      return `<div class="hist-entry"><div class="hdate">Day ${h.day} — ${fmtDate(h.date)} <span class="small">(${h.environment})</span></div><div class="hmeta">${summary||'No completed exercises'}${done.length>5?' · …':''}</div></div>`;
+    }).join('');
+    const legacy=state.legacyHistory.map(h=>{
+      const d=h.date?fmtDate(h.date):'Legacy';
+      const summary=Array.isArray(h.entries)?h.entries.slice(0,5).map(e=>`${e.name}${e.nextWeight?' '+e.nextWeight:''}`).join(' · '):'Imported V1 session';
+      return `<div class="hist-entry"><div class="hdate">Legacy Day ${h.day||''} — ${d}</div><div class="hmeta">${summary}</div></div>`;
+    }).join('');
+    historyView.innerHTML=(modern||legacy)?`${modern}${legacy?`<div class="small" style="padding:8px 3px 10px;">Older V1 history preserved below</div>${legacy}`:''}`:`<div class="empty">No completed sessions yet.</div>`;
   }
 
-  // ---------------- Init ----------------
-  envToggle.querySelectorAll('button').forEach(b=>{
-    b.addEventListener('click', ()=>{
-      state.environment = b.dataset.env;
-      setEnvButtons();
-      saveState();
-      if(mode==='workout') renderWorkout();
-    });
-  });
+  function renderSettings(){
+    mode='settings';
+    [workoutView,summaryView,historyView,settingsView].forEach(v=>v.classList.remove('active'));
+    settingsView.classList.add('active');
+    backBtn.style.display='inline-block';
+    mainBtn.textContent='Close Settings';
+    settingsView.innerHTML=`
+      <div class="settings-card">
+        <h3>Rest timer</h3>
+        <div class="settings-row"><span>Audible beep</span><button class="toggle ${state.settings.sound?'on':''}" id="soundToggle">${state.settings.sound?'ON':'OFF'}</button></div>
+        <div class="settings-row"><span>Vibration (when supported)</span><button class="toggle ${state.settings.vibration?'on':''}" id="vibeToggle">${state.settings.vibration?'ON':'OFF'}</button></div>
+      </div>
+      <div class="settings-card">
+        <h3>Backup</h3>
+        <p>IronLog saves continuously in this browser. Export a backup occasionally so changing phones or clearing browser data cannot wipe your history.</p>
+        <div class="settings-actions"><button id="exportBtn">Export Backup</button><button id="importBtn">Import Backup</button></div>
+        <p class="small">Your original V1 storage key is left untouched after migration.</p>
+      </div>`;
+    document.getElementById('soundToggle').onclick=()=>{state.settings.sound=!state.settings.sound;saveState();renderSettings();};
+    document.getElementById('vibeToggle').onclick=()=>{state.settings.vibration=!state.settings.vibration;saveState();renderSettings();};
+    document.getElementById('exportBtn').onclick=exportBackup;
+    document.getElementById('importBtn').onclick=()=>importInput.click();
+  }
 
-  historyBtn.addEventListener('click', renderHistory);
-  mainBtn.addEventListener('click', finishWorkout);
+  function renderMigration(){
+    if(!state.migrationNotice){ migrationBanner.innerHTML=''; return; }
+    migrationBanner.innerHTML=`<div class="migration"><button id="migrationDismiss">Dismiss</button><strong>V1 data imported.</strong><br>Your old IronLog weights, rep targets, day position, and legacy history were copied into V2. The original <code>${V1_KEY}</code> data was not deleted.</div>`;
+    document.getElementById('migrationDismiss').onclick=()=>{state.migrationNotice=false;saveState();renderMigration();};
+  }
 
-  (async function init(){
-    const loaded = await loadState();
-    state = loaded || buildDefaultState();
-    if(!loaded) await saveState();
+  function renderAll(){
+    ensureStateShape();
     setEnvButtons();
+    renderMigration();
     renderDayPlate();
     renderWorkout();
-  })();
+    updateProgress();
+  }
 
+  function primeAudio(){
+    if(!state.settings.sound) return;
+    try{
+      audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+      if(audioCtx.state==='suspended') audioCtx.resume();
+    }catch(e){}
+  }
+
+  function startRestTimer(seconds,name){
+    primeAudio();
+    stopRestTimer(false,false);
+    timerEnd=Date.now()+seconds*1000;
+    timerLabel.textContent=`Rest after ${name}`;
+    if(state.activeSession){
+      state.activeSession.restTimer={end:timerEnd,label:timerLabel.textContent};
+      saveState();
+    }
+    timerBar.classList.add('show');
+    updateTimerDisplay();
+    timerInterval=setInterval(updateTimerDisplay,250);
+  }
+
+  function updateTimerDisplay(){
+    if(!timerEnd) return;
+    const left=Math.max(0,Math.ceil((timerEnd-Date.now())/1000));
+    const m=Math.floor(left/60), s=left%60;
+    timerTime.textContent=`${m}:${String(s).padStart(2,'0')}`;
+    if(left<=0){
+      clearInterval(timerInterval); timerInterval=null; timerEnd=null;
+      timerTime.textContent='READY';
+      if(state.activeSession){ state.activeSession.restTimer=null; saveState(); }
+      alertRestDone();
+    }
+  }
+
+  function alertRestDone(){
+    if(state.settings.vibration && navigator.vibrate){ try{navigator.vibrate([180,90,180]);}catch(e){} }
+    if(state.settings.sound){
+      try{
+        audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+        const osc=audioCtx.createOscillator(); const gain=audioCtx.createGain();
+        osc.connect(gain);gain.connect(audioCtx.destination);osc.frequency.value=880;gain.gain.value=.14;
+        osc.start();setTimeout(()=>{osc.stop();},220);
+      }catch(e){}
+    }
+  }
+
+  function stopRestTimer(hide=true,persist=true){
+    if(timerInterval) clearInterval(timerInterval);
+    timerInterval=null; timerEnd=null;
+    if(state && state.activeSession && persist){ state.activeSession.restTimer=null; saveState(); }
+    if(hide) timerBar.classList.remove('show');
+  }
+
+  function restoreRestTimer(){
+    if(!state.activeSession || !state.activeSession.restTimer) return;
+    const rt=state.activeSession.restTimer;
+    timerLabel.textContent=rt.label||'Rest';
+    timerEnd=Number(rt.end)||null;
+    timerBar.classList.add('show');
+    if(!timerEnd || timerEnd<=Date.now()){
+      timerEnd=null;
+      timerTime.textContent='READY';
+      state.activeSession.restTimer=null;
+      saveState();
+      return;
+    }
+    updateTimerDisplay();
+    timerInterval=setInterval(updateTimerDisplay,250);
+  }
+
+  function exportBackup(){
+    const payload={app:'IronLog',version:2,exportedAt:new Date().toISOString(),state};
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download=`ironlog-backup-${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+
+  function importBackupFile(file){
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const parsed=JSON.parse(reader.result);
+        let incoming=parsed && parsed.state ? parsed.state : parsed;
+        if(incoming && incoming.version===2 && validateV2(incoming)){
+          if(!confirm('Replace the current IronLog V2 data with this backup? Your original V1 data, if present, will remain untouched.')) return;
+          state=incoming; ensureStateShape(); saveState(); stopRestTimer(); renderAll(); alert('IronLog backup imported.');
+        } else if(incoming && incoming.exerciseState){
+          if(!confirm('This looks like an IronLog V1 backup. Import it into V2?')) return;
+          state=buildDefaultState(incoming); saveState(); stopRestTimer(); renderAll(); alert('V1 backup imported into IronLog V2.');
+        } else throw new Error('Unrecognized backup');
+      }catch(e){ alert('That file does not look like a valid IronLog backup.'); }
+      importInput.value='';
+    };
+    reader.readAsText(file);
+  }
+
+  envToggle.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    if(state.activeSession) return;
+    state.environment=b.dataset.env; saveState(); setEnvButtons(); renderDayPlate(); renderWorkout();
+  }));
+  historyBtn.addEventListener('click',renderHistory);
+  settingsBtn.addEventListener('click',renderSettings);
+  mainBtn.addEventListener('click',()=>{
+    if(mode==='history' || mode==='settings') { renderAll(); return; }
+    if(mode==='summary') { renderAll(); return; }
+    if(!state.activeSession) createActiveSession(); else finishWorkout();
+  });
+  backBtn.addEventListener('click',renderAll);
+  timerAdd.addEventListener('click',()=>{
+    if(timerEnd){timerEnd+=30000;if(state.activeSession){state.activeSession.restTimer={end:timerEnd,label:timerLabel.textContent};saveState();}updateTimerDisplay();}
+    else {timerEnd=Date.now()+30000;timerBar.classList.add('show');if(state.activeSession){state.activeSession.restTimer={end:timerEnd,label:timerLabel.textContent||'Rest'};saveState();}timerInterval=setInterval(updateTimerDisplay,250);updateTimerDisplay();}
+  });
+  timerStop.addEventListener('click',()=>stopRestTimer(true));
+  importInput.addEventListener('change',()=>{ if(importInput.files && importInput.files[0]) importBackupFile(importInput.files[0]); });
+
+  state=loadState();
+  ensureStateShape();
+  saveState();
+  renderAll();
+  restoreRestTimer();
 })();
 </script>
 </body>
