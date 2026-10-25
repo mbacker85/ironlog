@@ -52,6 +52,29 @@
   .start-card p,.settings-card p{font-size:12px;color:var(--muted);line-height:1.5;margin:6px 0}
   .start-list{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}
   .start-list div{font-size:11px;color:var(--muted);padding:8px;background:var(--surface-alt);border-radius:9px}
+  .dashboard-head{padding:8px 4px 13px}
+  .dashboard-kicker{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  .dashboard-head h1{font-family:'Oswald',sans-serif;font-size:26px;line-height:1.1;margin:0 0 5px}
+  .dashboard-head p{font-size:12px;color:var(--muted);line-height:1.45;margin:0}
+  .rotation-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+  .rotation-card{position:relative;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:11px 10px 12px}
+  .rotation-card.next{border-color:var(--accent-dim);background:rgba(227,178,60,.06)}
+  .rotation-day{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px}
+  .rotation-letter{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--border);font-family:'Oswald',sans-serif;font-size:17px;font-weight:700;color:var(--muted)}
+  .rotation-card.next .rotation-letter{border-color:var(--accent);color:var(--accent)}
+  .rotation-badge{font-family:'Oswald',sans-serif;font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+  .rotation-name{font-family:'Oswald',sans-serif;font-size:13px;line-height:1.25;color:var(--text);margin-bottom:6px}
+  .rotation-date{font-size:9px;line-height:1.35;color:var(--muted)}
+  .rotation-date strong{display:block;color:var(--up);font-weight:600;margin-bottom:1px}
+  .next-workout{width:100%;display:block;text-align:left;background:linear-gradient(145deg,rgba(227,178,60,.14),rgba(30,27,23,.98) 58%);border:1px solid var(--accent-dim);border-radius:16px;color:var(--text);padding:15px 16px;cursor:pointer}
+  .next-workout-top{display:flex;align-items:center;gap:13px}
+  .next-workout .plate{width:50px;height:50px;font-size:21px;border-width:2px;box-shadow:inset 0 0 0 5px var(--bg),inset 0 0 0 6px var(--border)}
+  .next-workout-copy{min-width:0;flex:1}
+  .next-workout-label{font-family:'Oswald',sans-serif;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);margin-bottom:2px}
+  .next-workout-title{font-family:'Oswald',sans-serif;font-size:20px;line-height:1.2;font-weight:700}
+  .next-workout-meta{font-size:11px;color:var(--muted);line-height:1.4;margin-top:2px}
+  .next-workout-action{display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(227,178,60,.2);margin-top:13px;padding-top:11px;font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+  .next-workout-action span:last-child{font-size:18px;color:var(--accent)}
   .card{transition:opacity .15s,border-color .15s}
   .card.complete{border-color:rgba(124,184,143,.65);background:rgba(124,184,143,.06)}
   .card.skipped{opacity:.68}
@@ -102,7 +125,7 @@
   .settings-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.settings-actions button{flex:1;min-width:130px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);border-radius:9px;padding:10px;font-size:11px;cursor:pointer}
   .small{font-size:10px;color:var(--muted)}
   .danger{color:var(--down)!important}
-  @media (max-width:390px){.set-chip{min-width:76px}.start-list{grid-template-columns:1fr}.header-actions .icon-btn{padding:8px 8px}}
+  @media (max-width:390px){.set-chip{min-width:76px}.start-list{grid-template-columns:1fr}.header-actions .icon-btn{padding:8px 8px}.rotation-grid{gap:6px}.rotation-card{padding:10px 8px}.rotation-name{font-size:12px}}
 </style>
 </head>
 <body>
@@ -254,7 +277,10 @@
   function sum(a){ return a.reduce((x,y)=>x+y,0); }
   function currentDay(){ return DAY_ORDER[state.dayIndex] || 'A'; }
   function nextDay(day){ return DAY_ORDER[(DAY_ORDER.indexOf(day)+1)%DAY_ORDER.length]; }
-  function fmtDate(iso){ return new Date(iso).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
+  function fmtDate(iso){
+    const value=/^\d{4}-\d{2}-\d{2}$/.test(String(iso)) ? `${iso}T12:00:00` : iso;
+    return new Date(value).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+  }
   function fmtTime(iso){ return new Date(iso).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}); }
 
   function nearestHomeWeight(w){
@@ -589,6 +615,12 @@
   }
 
   function renderDayPlate(){
+    if(!state.activeSession){
+      dayPlateRow.style.display='none';
+      dayPlateRow.innerHTML='';
+      return;
+    }
+    dayPlateRow.style.display='flex';
     const day=state.activeSession ? state.activeSession.day : currentDay();
     const info=WORKOUT[day];
     const env=state.activeSession ? state.activeSession.environment : state.environment;
@@ -598,6 +630,29 @@
         <h1>${info.label}</h1>
         <p>${info.sub} · ${env==='home'?'Home dumbbells':'Gym dumbbells'} · ${state.activeSession?'after this: Day '+nextDay(day):'ready when you are'}</p>
       </div>`;
+  }
+
+  function normalizedHistoryDay(value){
+    const match=String(value||'').toUpperCase().match(/(?:^|\s)([ABC])(?:$|\s)/);
+    return match ? match[1] : (DAY_ORDER.includes(String(value||'').toUpperCase()) ? String(value).toUpperCase() : null);
+  }
+
+  function completionDashboard(){
+    const completed={A:null,B:null,C:null};
+    const sessions=[...(state.history||[]),...(state.legacyHistory||[])];
+    if(state.lastCompleted) sessions.push(state.lastCompleted);
+    sessions.forEach(session=>{
+      const day=normalizedHistoryDay(session.day);
+      if(!day || !session.date) return;
+      const timestamp=Date.parse(session.date);
+      if(!Number.isFinite(timestamp)) return;
+      if(!completed[day] || timestamp>completed[day].timestamp){
+        completed[day]={date:session.date,timestamp,environment:session.environment||null};
+      }
+    });
+    const dated=Object.entries(completed).filter(([,entry])=>entry);
+    const latestDay=dated.length ? dated.sort((a,b)=>b[1].timestamp-a[1].timestamp)[0][0] : null;
+    return {completed,latestDay};
   }
 
   function updateProgress(){
@@ -634,16 +689,41 @@
     if(!state.activeSession){
       const day=currentDay();
       const info=WORKOUT[day];
+      const dashboard=completionDashboard();
       mainBtn.textContent=`Start ${info.label}`;
-      const names=info.slots.map(s=>EXERCISES[s.ex].name);
-      workoutView.innerHTML=`
-        <div class="start-card">
-          <h2>Home</h2>
-          ${state.lastCompleted?`<p><strong>Day ${state.lastCompleted.day} completed · ${fmtDate(state.lastCompleted.date)}</strong> — saved.</p>`:''}
-          <h2>Next: ${info.label} · ${info.sub}</h2>
-          <p>Choose Home or Gym above, then start when you are ready. Aim for 45–60 minutes; full sessions may run longer with warm-ups and unilateral work. Your environment locks only after you record activity.</p>
-          <div class="start-list">${names.map(n=>`<div>${n}</div>`).join('')}</div>
+      const envLabel=state.environment==='home'?'Home dumbbells':'Gym dumbbells';
+      const rotationCards=DAY_ORDER.map(rotationDay=>{
+        const rotationInfo=WORKOUT[rotationDay];
+        const completed=dashboard.completed[rotationDay];
+        const isNext=rotationDay===day;
+        const status=completed
+          ? `${dashboard.latestDay===rotationDay?'<strong>Most recent</strong>':'Last completed'}${fmtDate(completed.date)}${completed.environment?` · ${completed.environment.toUpperCase()}`:''}`
+          : 'No completed workout yet';
+        return `<div class="rotation-card ${isNext?'next':''}">
+          <div class="rotation-day"><div class="rotation-letter">${rotationDay}</div>${isNext?'<div class="rotation-badge">Up next</div>':''}</div>
+          <div class="rotation-name">${rotationInfo.sub}</div>
+          <div class="rotation-date">${status}</div>
         </div>`;
+      }).join('');
+      workoutView.innerHTML=`
+        <div class="dashboard-head">
+          <div class="dashboard-kicker">Workout dashboard</div>
+          <h1>Your A / B / C rotation</h1>
+          <p>See when each workout was last completed. Choose Home or Gym above before starting.</p>
+        </div>
+        <div class="rotation-grid">${rotationCards}</div>
+        <button class="next-workout" id="startNextWorkout" type="button" aria-label="Start ${info.label}: ${info.sub}">
+          <div class="next-workout-top">
+            <div class="plate">${day}</div>
+            <div class="next-workout-copy">
+              <div class="next-workout-label">Up next</div>
+              <div class="next-workout-title">${info.label} · ${info.sub}</div>
+              <div class="next-workout-meta">${envLabel} · ${info.slots.length} exercises</div>
+            </div>
+          </div>
+          <div class="next-workout-action"><span>Start ${info.label} when ready</span><span aria-hidden="true">→</span></div>
+        </button>`;
+      document.getElementById('startNextWorkout').onclick=createActiveSession;
       updateProgress();
       return;
     }

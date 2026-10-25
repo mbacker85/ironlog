@@ -49,9 +49,18 @@ for(const [name,type] of Object.entries(process.env.TEST_CHROMIUM ? {chromium,we
  assert.equal((await state()).activeSession,null); assert.equal((await state()).dayIndex,1);
  assert.equal((await state()).history.length,1);
  assert.deepEqual((await state()).slotState['A-db-bench'].home,homeBefore);
- assert((await page.textContent('#workoutView')).includes('Day A completed'));
+ assert.equal(await page.locator('.rotation-card').count(),3);
+ assert((await page.locator('.rotation-card').nth(0).textContent()).includes('Most recent'));
+ assert((await page.locator('.rotation-card').nth(0).textContent()).includes('Oct'));
+ assert((await page.textContent('#startNextWorkout')).includes('Day B'));
  assert.equal(await page.textContent('#mainBtn'),'Start Day B');
  assert(!(await page.isVisible('#timerBar')));
+ assert(!(await page.isVisible('#dayPlateRow')));
+ await page.click('#startNextWorkout');
+ assert.equal((await state()).activeSession.day,'B');
+ assert.equal((await state()).activeSession.environment,'gym');
+ await page.click('#settingsBtn'); await page.click('#cancelWorkout');
+ assert.equal((await state()).dayIndex,1);
  await page.reload(); assert.equal((await state()).activeSession,null);
  if(process.env.SCREENSHOT_DIR) await page.screenshot({path:process.env.SCREENSHOT_DIR+'/ironlog-home.png',fullPage:true});
  await page.click('#settingsBtn'); await page.click('#testSound');
@@ -113,6 +122,9 @@ for(const [name,type] of Object.entries(process.env.TEST_CHROMIUM ? {chromium,we
  assert.equal(migrated.dayIndex,2);assert.equal(migrated.slotState['A-db-bench'].home.weight,72);
  assert.equal(migrated.slotState['A-db-bench'].gym.weight,70);assert.equal(migrated.legacyHistory.length,1);
  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('ironlog-state-v1'))),legacy);
+ assert.equal(await page.locator('.rotation-card').count(),3);
+ assert((await page.locator('.rotation-card').nth(0).textContent()).includes('Sep 1, 2026'));
+ assert((await page.textContent('#startNextWorkout')).includes('Day C'));
  // Existing V2 with active session and a pre-existing completed plan is left intact.
  await page.click('#mainBtn'); let v2=await state(); delete v2.settings.keepAwake;
  v2.activeSession.items[0].sets[0].reps=7;v2.activeSession.items[0].sets[0].done=true;

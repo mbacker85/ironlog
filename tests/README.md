@@ -2,7 +2,7 @@
 
 Install development dependencies with `npm install`, then `npx playwright install --with-deps webkit`, then `npm test`. The default suite uses WebKit at a 390 × 844 touch/mobile viewport. Set `TEST_CHROMIUM=1` to also run Chromium when installed.
 
-Tests exercise V1 migration, unchanged V1 storage, V2 sessions, independent Home/Gym progression, location locking, safe cancellation, timer expiry/add/stop/refresh, test audio initialization, workout completion/Home navigation, import recovery, history beyond 120 sessions, failed writes and corrupt-storage protection. Coaching scenarios include uneven reps, total-rep improvement, RIR, bad days, repeated severe misses and large isolation jumps. Tests use synthetic state in an isolated origin, never real workout data.
+Tests exercise V1 migration, unchanged V1 storage, V2 sessions, the A/B/C dashboard and completion dates, next-workout launch, independent Home/Gym progression, location locking, safe cancellation, timer expiry/add/stop/refresh, test audio initialization, workout completion/Home navigation, import recovery, history beyond 120 sessions, failed writes and corrupt-storage protection. Coaching scenarios include uneven reps, total-rep improvement, RIR, bad days, repeated severe misses and large isolation jumps. Tests use synthetic state in an isolated origin, never real workout data.
 
 WebKit automation verifies browser behavior, not physical iPhone speaker output, iOS mute/power settings, or background/locked-screen playback. The app explicitly communicates those limits.
 
