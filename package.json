@@ -1,0 +1,6 @@
+{
+  "name": "ironlog",
+  "private": true,
+  "scripts": {"test": "node tests/regression.cjs"},
+  "devDependencies": {"playwright": "1.62.1"}
+}

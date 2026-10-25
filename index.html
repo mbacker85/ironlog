@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="IronLog">
@@ -245,6 +245,10 @@
   let timerInterval = null;
   let timerEnd = null;
   let audioCtx = null;
+  let wakeLock = null;
+  let wakePending = false;
+  let storageBlocked = false;
+  function escapeHTML(value){ return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   function clamp(n,min,max){ return Math.min(max,Math.max(min,n)); }
   function sum(a){ return a.reduce((x,y)=>x+y,0); }
@@ -312,7 +316,8 @@
       dayIndex: legacy && Number.isInteger(legacy.dayIndex) ? clamp(legacy.dayIndex,0,2) : 0,
       environment: legacy && (legacy.environment==='gym' || legacy.environment==='home') ? legacy.environment : 'home',
       slotState,
-      activeSession:null,
+      activeSession:legacy && legacy.activeSession && Array.isArray(legacy.activeSession.items) && WORKOUT[legacy.activeSession.day] ? legacy.activeSession : null,
+      legacySnapshot:legacy || null,
       history:[],
       legacyHistory,
       settings:{sound:true,vibration:true},
@@ -326,30 +331,26 @@
   }
 
   function loadState(){
-    try{
-      const raw=localStorage.getItem(V2_KEY);
-      if(raw){
-        const parsed=JSON.parse(raw);
-        if(validateV2(parsed)) return parsed;
-      }
-    }catch(e){ console.error('V2 load failed',e); }
-    let legacy=null;
-    try{
-      const raw1=localStorage.getItem(V1_KEY);
-      if(raw1) legacy=JSON.parse(raw1);
-    }catch(e){ console.error('V1 load failed',e); }
-    const fresh=buildDefaultState(legacy);
-    try{ localStorage.setItem(V2_KEY,JSON.stringify(fresh)); }catch(e){}
-    return fresh;
+    // Never overwrite an unreadable existing key with defaults.
+    const raw=localStorage.getItem(V2_KEY);
+    if(raw){
+      const parsed=JSON.parse(raw);
+      if(!validateV2(parsed)) throw new Error('Existing V2 data needs recovery');
+      return parsed;
+    }
+    const raw1=localStorage.getItem(V1_KEY);
+    return buildDefaultState(raw1 ? JSON.parse(raw1) : null);
   }
 
   function saveState(){
-    try{ localStorage.setItem(V2_KEY,JSON.stringify(state)); }
-    catch(e){ console.error('Save failed',e); alert('IronLog could not save locally. Export a backup before continuing.'); }
+    if(storageBlocked) return false;
+    try{ localStorage.setItem(V2_KEY,JSON.stringify(state)); return true; }
+    catch(e){ console.error('Save failed',e); alert('IronLog could not save locally. Export a backup before continuing.'); return false; }
   }
 
   function ensureStateShape(){
     if(!state.settings) state.settings={sound:true,vibration:true};
+    if(state.settings.keepAwake===undefined) state.settings.keepAwake=true;
     if(!Array.isArray(state.history)) state.history=[];
     if(!Array.isArray(state.legacyHistory)) state.legacyHistory=[];
     DAY_ORDER.forEach(day=>WORKOUT[day].slots.forEach(slot=>{
@@ -383,11 +384,13 @@
     const nw=nextWeight(weight,env);
     if(nw===weight) return ex.repMax + (ex.extension||4);
     const jump=(nw-weight)/weight;
+    if(env==='home' && ex.type==='isolation' && jump>.25) return Math.max(30,ex.repMax+(ex.extension||5));
     const threshold = ex.type==='compound' ? .15 : ex.type==='moderate' ? .20 : .25;
     return jump>threshold ? ex.repMax + (ex.extension||5) : ex.repMax;
   }
 
   function createActiveSession(){
+    primeAudio();
     const day=currentDay();
     const env=state.environment;
     const items=WORKOUT[day].slots.map(slot=>{
@@ -406,7 +409,8 @@
       id:'s-'+Date.now(), day, environment:env, startedAt:new Date().toISOString(), items, restTimer:null
     };
     saveState();
-    stopRestTimer(false);
+    stopRestTimer(true);
+    syncWakeLock();
     renderAll();
   }
 
@@ -422,80 +426,96 @@
     return state.activeSession ? state.activeSession.items.find(i=>i.slotId===slotId) : null;
   }
 
+  // Rep/RIR progression is a conservative coaching heuristic, not a validated prediction
+  // of strength. Basis: https://pubmed.ncbi.nlm.nih.gov/38393985/ and https://pubmed.ncbi.nlm.nih.gov/35015560/.
   function progressionPlan(slot,item){
-    const ex=EXERCISES[slot.ex];
-    const env=state.activeSession.environment;
+    const ex=EXERCISES[slot.ex], env=state.activeSession.environment;
     const ss=state.slotState[slot.id][env];
-    const reps=item.sets.map(s=>Number(s.reps)||0);
-    const total=sum(reps);
-    const avg=total/reps.length;
-    const minRep=Math.min(...reps);
-    const maxForNow=effectiveMax(ex,item.weight,env);
-    const rir=item.rir;
-    let badStreak=ss.badStreak||0;
-    let newWeight=item.weight;
-    let targetTotal=total;
-    let note='Repeat this load and own the performance.';
-    let direction='hold';
-
-    const severeMiss = avg < ex.repMin || minRep < Math.max(1,ex.repMin-2);
-    badStreak = severeMiss ? badStreak+1 : 0;
-
-    if(!ex.bodyweight && severeMiss && badStreak>=2){
-      const lower=prevWeight(item.weight,env);
-      if(lower<item.weight){
-        newWeight=lower;
-        targetTotal=Math.max(ex.repMin*slot.sets, Math.round((ex.repMin+1)*slot.sets));
-        badStreak=0;
-        direction='down';
-        note=`Two tough exposures in a row — use ${newWeight} lb next time and rebuild with clean reps.`;
-        return {weight:newWeight,targetTotal,badStreak,note,direction,lastPerformance:{weight:item.weight,reps,rir,total,date:new Date().toISOString()}};
+    const reps=item.sets.map(s=>Number(s.reps)||0), total=sum(reps);
+    const max=effectiveMax(ex,item.weight,env), ceiling=max*slot.sets;
+    const recent=state.history.filter(h=>h.environment===env)
+      .flatMap(h=>h.items.filter(i=>i.slotId===slot.id && i.status==='complete'));
+    // Only consecutive exposures at this load/number of sets inform the trend.
+    const same=[];
+    for(const i of recent){
+      if(i.weight!==item.weight || i.reps.length!==slot.sets) break;
+      same.push(i); if(same.length===3) break;
+    }
+    const previous=same[0] || (ss.lastPerformance && ss.lastPerformance.weight===item.weight && ss.lastPerformance.reps.length===slot.sets ? ss.lastPerformance : null);
+    const priorTotal=previous ? sum(previous.reps) : null;
+    const trend=same.length ? Math.round(sum(same.map(i=>sum(i.reps)))/same.length) : priorTotal;
+    const severe=r=>sum(r)/r.length<ex.repMin || Math.min(...r)<Math.max(1,ex.repMin-2);
+    const baseline=Math.max(trend||0,previous?.nextPlan?.lastPerformance?.baselineTotal||previous?.baselineTotal||0);
+    const substantial=baseline>0 && total<baseline*.8 && item.rir==='0';
+    const missed=severe(reps) || substantial;
+    const priorMiss=previous && (severe(previous.reps) || previous.nextPlan?.lastPerformance?.substantialMiss || previous.substantialMiss);
+    let badStreak=missed ? (priorMiss ? 2 : 1) : 0;
+    let weight=item.weight, targetTotal=total, direction='hold', note='';
+    const plan=()=>({weight,targetTotal,badStreak,direction,note,lastPerformance:{weight:item.weight,reps,rir:item.rir,total,substantialMiss:substantial,baselineTotal:substantial?baseline:null,date:new Date().toISOString()}});
+    if(missed){
+      const lower=ex.bodyweight?item.weight:prevWeight(item.weight,env);
+      if(badStreak>=2 && lower<item.weight){
+        weight=lower; targetTotal=(ex.repMin+1)*slot.sets; badStreak=0; direction='down';
+        note='Two substantial misses at the same load — lower one available step and rebuild with clean reps.';
+      }else{
+        targetTotal=Math.max(total,ex.repMin*slot.sets);
+        note='One tough exposure does not mean lost strength. Repeat this load once; use clean reps and consistent rest.';
       }
+      return plan();
     }
-
-    const allAtTop = reps.every(r=>r>=maxForNow);
-    if(!ex.bodyweight && allAtTop && rir!=='0'){
-      const nw=nextWeight(item.weight,env);
-      if(nw>item.weight){
-        newWeight=nw;
-        targetTotal=(ex.repMin+1)*slot.sets;
-        direction='up';
-        note=`You owned ${item.weight} lb across the full range — move to ${newWeight} lb next time and rebuild near the low end.`;
-        return {weight:newWeight,targetTotal,badStreak:0,note,direction,lastPerformance:{weight:item.weight,reps,rir,total,date:new Date().toISOString()}};
-      }
+    const nw=ex.bodyweight?item.weight:nextWeight(item.weight,env);
+    const jump=ex.bodyweight?0:(nw-item.weight)/item.weight;
+    const oversized=env==='home' && ex.type==='isolation' && jump>.25;
+    const topOwned=total>=ceiling && Math.min(...reps)>=max-2 && item.rir!=='0';
+    const priorOwned=previous && sum(previous.reps)>=ceiling && Math.min(...previous.reps)>=max-2 && previous.rir!=='0';
+    const large=jump>(ex.type==='compound'?.15:.20);
+    if(topOwned && nw>item.weight && !oversized && (!large || priorOwned)){
+      weight=nw; targetTotal=(ex.repMin+(large?0:1))*slot.sets; direction='up';
+      note='You owned the top of the range with reps left'+(large?' on repeated exposures':'')+'. Try the next available load near the low end; keep your form.';
+      return plan();
     }
-
-    if(ex.bodyweight && allAtTop && rir!=='0'){
-      targetTotal=maxForNow*slot.sets;
-      direction='hold';
-      note=`You are at the top of the current bodyweight range. Repeat it with control; a harder variation can be added later if needed.`;
-    } else if(rir==='3+'){
-      targetTotal=Math.min(total+2,maxForNow*slot.sets);
+    if(item.rir==='0'){
+      note='0 reps left — repeat this load and total with more margin; failure does not earn a weight increase.';
+    }else if(total>=item.startedTargetTotal || (priorTotal!==null && total>priorTotal)){
+      targetTotal=Math.max(total,Math.min(ceiling,total+(item.rir==='3+'?2:1)));
       direction=targetTotal>total?'up':'hold';
-      note=targetTotal>total ? `You had 3+ reps left — keep the same load and add about 2 total reps next time.` : `Stay here and make the reps cleaner before adding load.`;
-    } else if(rir==='1-2'){
-      targetTotal=Math.min(total+1,maxForNow*slot.sets);
-      direction=targetTotal>total?'up':'hold';
-      note=targetTotal>total ? `Good working effort — same load next time, with a goal of 1 more total rep.` : `You are at the top of this load's useful range; repeat once more with 1–2 reps in reserve.`;
-    } else {
-      targetTotal=total;
-      direction='hold';
-      note=`You finished at 0 reps in reserve — repeat the same load and aim to match these reps with a little more margin.`;
+      note=targetTotal>total ? `${priorTotal!==null && total>priorTotal ? 'Progress: '+(total-priorTotal)+' more total reps. ' : ''}Same load — beat ${total} total reps; aim for ${targetTotal}, with 1–3 reps left.` : 'Top of the rep range reached. Repeat with controlled form and reps in reserve.';
+    }else{
+      targetTotal=Math.max(total,Math.min(ceiling,item.startedTargetTotal));
+      note='Below your recent goal — keep this load and repeat the goal. One normal off day does not reduce your weight.';
     }
-
-    if(severeMiss && badStreak===1){
-      targetTotal=Math.max(total,ex.repMin*slot.sets);
-      direction='hold';
-      note=`Off day or load was aggressive — repeat it once before IronLog considers lowering the weight.`;
+    if(oversized && total>=ex.repMax*slot.sets){
+      note+=` The next Home jump (${item.weight} to ${nw} lb) is too large to prescribe automatically. Build toward ${max} clean reps per set, then maintain or use a smaller increment if available.`;
+    }else if(topOwned && large && !priorOwned){
+      note+=' Own this range once more before the larger dumbbell jump.';
     }
+    return plan();
+  }
 
-    return {weight:newWeight,targetTotal,badStreak,note,direction,lastPerformance:{weight:item.weight,reps,rir,total,date:new Date().toISOString()}};
+  function hasActivity(){
+    const session=state.activeSession;
+    if(!session) return false;
+    return !!session.activityRecorded || session.items.some(i=>i.status!=='active' || i.rir!==null || i.sets.some(s=>s.done) ||
+      JSON.stringify(i.sets.map(s=>s.reps))!==JSON.stringify(distributeTotal(i.startedTargetTotal,i.sets.length,0,effectiveMax(EXERCISES[i.exerciseId],i.weight,session.environment))));
+  }
+
+  function markActivity(){ state.activeSession.activityRecorded=true; setEnvButtons(); }
+
+  function cancelWorkout(){
+    if(!state.activeSession || !confirm('Cancel this unfinished workout? Completed history, working weights, progression and day position stay unchanged. A copy of this unfinished workout is retained in your backup.')) return;
+    const before=JSON.stringify(state);
+    state.cancelledSessions=state.cancelledSessions||[];
+    state.cancelledSessions.push({...state.activeSession,cancelledAt:new Date().toISOString()});
+    state.activeSession=null;
+    if(!saveState()){ state=JSON.parse(before); return; }
+    stopRestTimer(); syncWakeLock(); renderAll();
   }
 
   function completeExercise(slotId){
     const slot=getSlot(slotId), item=getItem(slotId);
-    if(!slot || !item) return;
+    if(!slot || !item || item.status!=='active') return;
     if(!item.sets.every(s=>s.done) || !item.rir) return;
+    markActivity();
     item.nextPlan=progressionPlan(slot,item);
     item.status='complete';
     saveState();
@@ -511,12 +531,14 @@
 
   function skipExercise(slotId,reason){
     const item=getItem(slotId); if(!item) return;
+    markActivity();
     item.status='skipped'; item.reason=reason; item.nextPlan=null;
     saveState(); renderWorkout(); updateProgress();
   }
 
   function finishWorkout(){
     if(!state.activeSession){ createActiveSession(); return; }
+    const before=JSON.stringify(state);
     const incomplete=state.activeSession.items.filter(i=>i.status==='active');
     if(incomplete.length){
       const ok=confirm(`${incomplete.length} exercise${incomplete.length===1?' is':'s are'} incomplete. Finish anyway? They will be saved as skipped and will NOT affect progression.`);
@@ -539,26 +561,27 @@
       }
       historyItems.push({
         slotId:item.slotId, exerciseId:item.exerciseId, name:ex.name,
-        weight:item.weight, reps:item.sets.map(s=>s.reps), status:item.status,
+        weight:item.weight, reps:item.sets.map(s=>s.reps), sets:item.sets.map(s=>({...s})), status:item.status,
         rir:item.rir, reason:item.reason, nextPlan:item.nextPlan
       });
     });
 
     const finished={id:session.id,date:new Date().toISOString(),startedAt:session.startedAt,day:session.day,environment:session.environment,items:historyItems};
     state.history.unshift(finished);
-    if(state.history.length>120) state.history.length=120;
+    state.lastCompleted={day:session.day,date:finished.date,environment:session.environment};
     state.activeSession=null;
-    state.dayIndex=(state.dayIndex+1)%3;
-    saveState();
-    stopRestTimer(false);
-    renderSummary(finished);
+    state.dayIndex=(DAY_ORDER.indexOf(session.day)+1)%3;
+    if(!saveState()){ state=JSON.parse(before); return; }
+    stopRestTimer(true); syncWakeLock();
+    renderAll();
+    window.scrollTo(0,0);
   }
 
   function setEnvButtons(){
-    const locked=!!state.activeSession;
+    const locked=hasActivity();
     envToggle.classList.toggle('locked',locked);
     envToggle.querySelectorAll('button').forEach(b=>{
-      const env=locked?state.activeSession.environment:state.environment;
+      const env=state.activeSession?state.activeSession.environment:state.environment;
       b.classList.toggle('active',b.dataset.env===env);
       b.disabled=locked;
     });
@@ -573,7 +596,7 @@
       <div class="plate">${day}</div>
       <div class="day-meta">
         <h1>${info.label}</h1>
-        <p>${info.sub} · ${env==='home'?'Home dumbbells':'Gym dumbbells'} · next up: Day ${nextDay(day)}</p>
+        <p>${info.sub} · ${env==='home'?'Home dumbbells':'Gym dumbbells'} · ${state.activeSession?'after this: Day '+nextDay(day):'ready when you are'}</p>
       </div>`;
   }
 
@@ -603,6 +626,7 @@
 
   function renderWorkout(){
     mode='workout';
+    setEnvButtons();
     [workoutView,summaryView,historyView,settingsView].forEach(v=>v.classList.remove('active'));
     workoutView.classList.add('active');
     backBtn.style.display='none';
@@ -614,8 +638,10 @@
       const names=info.slots.map(s=>EXERCISES[s.ex].name);
       workoutView.innerHTML=`
         <div class="start-card">
-          <h2>${info.label} · ${info.sub}</h2>
-          <p>About 45–60 minutes. IronLog will lock the selected environment, save every action, time your rests, and build the next prescription from your actual performance.</p>
+          <h2>Home</h2>
+          ${state.lastCompleted?`<p><strong>Day ${state.lastCompleted.day} completed · ${fmtDate(state.lastCompleted.date)}</strong> — saved.</p>`:''}
+          <h2>Next: ${info.label} · ${info.sub}</h2>
+          <p>Choose Home or Gym above, then start when you are ready. Aim for 45–60 minutes; full sessions may run longer with warm-ups and unilateral work. Your environment locks only after you record activity.</p>
           <div class="start-list">${names.map(n=>`<div>${n}</div>`).join('')}</div>
         </div>`;
       updateProgress();
@@ -658,14 +684,14 @@
       if(item.status==='complete' && item.nextPlan){
         const p=item.nextPlan;
         const w=ex.bodyweight?'bodyweight':`${p.weight} lb`;
-        next=`<div class="next-note"><strong>Next:</strong> ${w} · target ${p.targetTotal} total reps. ${p.note}</div>`;
+        next=`<div class="next-note"><strong>Next:</strong> ${w} · target ${p.targetTotal} total reps. ${escapeHTML(p.note)}</div>`;
       } else if(item.status==='skipped'){
-        next=`<div class="next-note" style="color:var(--muted);background:var(--surface-alt);"><strong>Skipped:</strong> ${item.reason||'No progression change.'}</div>`;
+        next=`<div class="next-note" style="color:var(--muted);background:var(--surface-alt);"><strong>Skipped:</strong> ${escapeHTML(item.reason||'No progression change.')}</div>`;
       }
       html+=`
         <div class="card${cls}">
           <div class="card-top"><div><div class="ex-name">${ex.name}</div><div class="ex-sub">${slot.sets} sets · ${ex.repMin}–${effectiveMax(ex,item.weight,state.activeSession.environment)} rep working range · ${Math.round(ex.rest/60*10)/10} min rest</div></div>${weightHtml}</div>
-          <div class="goal-box">${goalText(slot,item)}</div>
+          <div class="goal-box">${goalText(slot,item)}${state.slotState[slot.id][state.activeSession.environment].lastNote?`<br>${escapeHTML(state.slotState[slot.id][state.activeSession.environment].lastNote)}`:""}</div>
           <div class="sets-row">${setHtml}</div>
           ${rirHtml}${actionHtml}${next}
         </div>`;
@@ -679,12 +705,14 @@
     workoutView.querySelectorAll('[data-step]').forEach(btn=>btn.addEventListener('click',()=>{
       const item=getItem(btn.dataset.slot); if(!item || item.status!=='active') return;
       const s=item.sets[Number(btn.dataset.set)];
+      markActivity();
       s.reps = btn.dataset.step==='inc' ? s.reps+1 : Math.max(0,s.reps-1);
       saveState(); renderWorkout();
     }));
     workoutView.querySelectorAll('[data-setdone]').forEach(btn=>btn.addEventListener('click',()=>{
       const item=getItem(btn.dataset.setdone); if(!item || item.status!=='active') return;
       const s=item.sets[Number(btn.dataset.set)];
+      primeAudio(); markActivity(); syncWakeLock();
       s.done=!s.done;
       saveState();
       if(s.done){
@@ -695,6 +723,7 @@
     }));
     workoutView.querySelectorAll('[data-rir]').forEach(btn=>btn.addEventListener('click',()=>{
       const item=getItem(btn.dataset.slot); if(!item || item.status!=='active') return;
+      markActivity();
       item.rir=btn.dataset.rir; saveState(); renderWorkout();
     }));
     workoutView.querySelectorAll('[data-complete]').forEach(btn=>btn.addEventListener('click',()=>completeExercise(btn.dataset.complete)));
@@ -712,8 +741,10 @@
       const val=prompt(env==='home'?`Home options: ${HOME_STEPS.join(', ')} lb. Enter the closest weight:`:'Enter gym dumbbell weight (IronLog rounds to nearest 5 lb):',item.weight);
       if(val===null) return;
       const nw=normalizedWeight(val,env); if(!nw) return;
+      if(item.sets.some(s=>s.done)){ alert('Reopen and unmark completed sets before changing weight, so all recorded reps use one load.'); return; }
+      markActivity();
       item.weight=nw;
-      state.slotState[slotId][env].weight=nw;
+      item.startedTargetTotal=defaultTarget(EXERCISES[slot.ex])*slot.sets;
       item.nextPlan=null;
       saveState(); renderWorkout();
     }));
@@ -768,16 +799,24 @@
     settingsView.innerHTML=`
       <div class="settings-card">
         <h3>Rest timer</h3>
-        <div class="settings-row"><span>Audible beep</span><button class="toggle ${state.settings.sound?'on':''}" id="soundToggle">${state.settings.sound?'ON':'OFF'}</button></div>
+        <div class="settings-actions"><button id="testSound">Test Sound</button></div>
+        <p id="soundStatus" role="status">iPhone: keep IronLog visible and check volume. iOS may silence audio when the screen locks or the app is in the background.</p>
+        <div class="settings-row"><span>Keep Screen Awake During Workout</span><button class="toggle ${state.settings.keepAwake?'on':''}" id="awakeToggle" ${'wakeLock' in navigator?'':'disabled'}>${'wakeLock' in navigator?(state.settings.keepAwake?'ON':'OFF'):'Unsupported'}</button></div>
+        <p>Screen wake requests can be refused by the device, including in power-saving mode.</p>
+        <div class="settings-row"><span>Audible multi-tone alert</span><button class="toggle ${state.settings.sound?'on':''}" id="soundToggle">${state.settings.sound?'ON':'OFF'}</button></div>
         <div class="settings-row"><span>Vibration (when supported)</span><button class="toggle ${state.settings.vibration?'on':''}" id="vibeToggle">${state.settings.vibration?'ON':'OFF'}</button></div>
       </div>
+      ${state.activeSession?'<div class="settings-card"><h3>Unfinished workout</h3><p>Cancel to unlock Home/Gym. History, progression and day position are kept.</p><div class="settings-actions"><button id="cancelWorkout">Cancel Current Workout</button></div></div>':''}
       <div class="settings-card">
         <h3>Backup</h3>
         <p>IronLog saves continuously in this browser. Export a backup occasionally so changing phones or clearing browser data cannot wipe your history.</p>
         <div class="settings-actions"><button id="exportBtn">Export Backup</button><button id="importBtn">Import Backup</button></div>
         <p class="small">Your original V1 storage key is left untouched after migration.</p>
       </div>`;
-    document.getElementById('soundToggle').onclick=()=>{state.settings.sound=!state.settings.sound;saveState();renderSettings();};
+    document.getElementById('testSound').onclick=async()=>{ const played=await alertRestDone(true); document.getElementById('soundStatus').textContent=played?'Test tones played. If silent, check device volume and keep IronLog in the foreground.':'Audio could not start. Tap Test Sound again with IronLog visible.'; };
+    document.getElementById('awakeToggle').onclick=()=>{state.settings.keepAwake=!state.settings.keepAwake;saveState();syncWakeLock();renderSettings();};
+    if(state.activeSession) document.getElementById('cancelWorkout').onclick=cancelWorkout;
+    document.getElementById('soundToggle').onclick=()=>{state.settings.sound=!state.settings.sound;primeAudio();saveState();renderSettings();};
     document.getElementById('vibeToggle').onclick=()=>{state.settings.vibration=!state.settings.vibration;saveState();renderSettings();};
     document.getElementById('exportBtn').onclick=exportBackup;
     document.getElementById('importBtn').onclick=()=>importInput.click();
@@ -798,12 +837,32 @@
     updateProgress();
   }
 
-  function primeAudio(){
-    if(!state.settings.sound) return;
+  async function primeAudio(force=false){
+    if(!force && !state.settings.sound) return false;
     try{
-      audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
-      if(audioCtx.state==='suspended') audioCtx.resume();
-    }catch(e){}
+      if(!audioCtx || audioCtx.state==='closed') audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      // Create/start inside the gesture; resume also handles Safari's interrupted state.
+      const source=audioCtx.createBufferSource();
+      source.buffer=audioCtx.createBuffer(1,1,22050); source.connect(audioCtx.destination); source.start(0);
+      if(audioCtx.state!=='running'){
+        // Some Safari/device states leave resume pending; keep Test Sound responsive.
+        let timeout;
+        await Promise.race([audioCtx.resume(),new Promise(resolve=>{timeout=setTimeout(resolve,1500);})]).finally(()=>clearTimeout(timeout));
+      }
+      return audioCtx.state==='running';
+    }catch(e){ return false; }
+  }
+
+  async function syncWakeLock(){
+    const wanted=state?.activeSession && state.settings.keepAwake && document.visibilityState==='visible';
+    if(!wanted){ if(wakeLock){ const lock=wakeLock; wakeLock=null; await lock.release().catch(()=>{}); } return; }
+    if(!navigator.wakeLock || wakeLock || wakePending) return;
+    wakePending=true;
+    try{
+      const lock=await navigator.wakeLock.request('screen');
+      if(!state.activeSession || !state.settings.keepAwake || document.visibilityState!=='visible'){ await lock.release(); return; }
+      wakeLock=lock; lock.addEventListener('release',()=>{if(wakeLock===lock) wakeLock=null;});
+    }catch(e){} finally{wakePending=false;}
   }
 
   function startRestTimer(seconds,name){
@@ -833,16 +892,22 @@
     }
   }
 
-  function alertRestDone(){
-    if(state.settings.vibration && navigator.vibrate){ try{navigator.vibrate([180,90,180]);}catch(e){} }
-    if(state.settings.sound){
-      try{
-        audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
-        const osc=audioCtx.createOscillator(); const gain=audioCtx.createGain();
-        osc.connect(gain);gain.connect(audioCtx.destination);osc.frequency.value=880;gain.gain.value=.14;
-        osc.start();setTimeout(()=>{osc.stop();},220);
-      }catch(e){}
-    }
+  async function alertRestDone(force=false){
+    if(state.settings.vibration && navigator.vibrate){ try{navigator.vibrate([200,100,200,100,300]);}catch(e){} }
+    if(!state.settings.sound && !force) return false;
+    if(!await primeAudio(force)) return false;
+    try{
+      const start=audioCtx.currentTime+.03;
+      [660,880,1100,660,880,1100].forEach((frequency,index)=>{
+        const osc=audioCtx.createOscillator(), gain=audioCtx.createGain(), t=start+index*.28;
+        osc.type='triangle'; osc.frequency.value=frequency;
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        gain.gain.setValueAtTime(0,t); gain.gain.linearRampToValueAtTime(.55,t+.02);
+        gain.gain.setValueAtTime(.55,t+.17); gain.gain.linearRampToValueAtTime(0,t+.24);
+        osc.onended=()=>{osc.disconnect();gain.disconnect();}; osc.start(t); osc.stop(t+.25);
+      });
+      return true;
+    }catch(e){ return false; }
   }
 
   function stopRestTimer(hide=true,persist=true){
@@ -863,6 +928,7 @@
       timerTime.textContent='READY';
       state.activeSession.restTimer=null;
       saveState();
+      alertRestDone();
       return;
     }
     updateTimerDisplay();
@@ -876,6 +942,15 @@
     a.href=url; a.download=`ironlog-backup-${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
 
+  function applyImport(incoming){
+    const previous=state;
+    // Retain a recovery copy before an explicitly approved replacement.
+    localStorage.setItem('ironlog-before-import',JSON.stringify(previous));
+    state=incoming; ensureStateShape();
+    if(!saveState()){state=previous;throw new Error('Import could not be saved');}
+    stopRestTimer(true,false); renderAll(); restoreRestTimer(); syncWakeLock();
+  }
+
   function importBackupFile(file){
     const reader=new FileReader();
     reader.onload=()=>{
@@ -884,10 +959,10 @@
         let incoming=parsed && parsed.state ? parsed.state : parsed;
         if(incoming && incoming.version===2 && validateV2(incoming)){
           if(!confirm('Replace the current IronLog V2 data with this backup? Your original V1 data, if present, will remain untouched.')) return;
-          state=incoming; ensureStateShape(); saveState(); stopRestTimer(); renderAll(); alert('IronLog backup imported.');
+          applyImport(incoming); alert('IronLog backup imported.');
         } else if(incoming && incoming.exerciseState){
           if(!confirm('This looks like an IronLog V1 backup. Import it into V2?')) return;
-          state=buildDefaultState(incoming); saveState(); stopRestTimer(); renderAll(); alert('V1 backup imported into IronLog V2.');
+          applyImport(buildDefaultState(incoming)); alert('V1 backup imported into IronLog V2.');
         } else throw new Error('Unrecognized backup');
       }catch(e){ alert('That file does not look like a valid IronLog backup.'); }
       importInput.value='';
@@ -896,8 +971,10 @@
   }
 
   envToggle.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
-    if(state.activeSession) return;
-    state.environment=b.dataset.env; saveState(); setEnvButtons(); renderDayPlate(); renderWorkout();
+    if(hasActivity()) return;
+    state.environment=b.dataset.env;
+    if(state.activeSession){ createActiveSession(); return; }
+    saveState(); setEnvButtons(); renderDayPlate(); renderWorkout();
   }));
   historyBtn.addEventListener('click',renderHistory);
   settingsBtn.addEventListener('click',renderSettings);
@@ -908,18 +985,26 @@
   });
   backBtn.addEventListener('click',renderAll);
   timerAdd.addEventListener('click',()=>{
+    primeAudio();
     if(timerEnd){timerEnd+=30000;if(state.activeSession){state.activeSession.restTimer={end:timerEnd,label:timerLabel.textContent};saveState();}updateTimerDisplay();}
     else {timerEnd=Date.now()+30000;timerBar.classList.add('show');if(state.activeSession){state.activeSession.restTimer={end:timerEnd,label:timerLabel.textContent||'Rest'};saveState();}timerInterval=setInterval(updateTimerDisplay,250);updateTimerDisplay();}
   });
   timerStop.addEventListener('click',()=>stopRestTimer(true));
   importInput.addEventListener('change',()=>{ if(importInput.files && importInput.files[0]) importBackupFile(importInput.files[0]); });
 
-  state=loadState();
-  ensureStateShape();
-  saveState();
-  renderAll();
-  restoreRestTimer();
+  document.addEventListener('visibilitychange',()=>{syncWakeLock(); if(document.visibilityState==='visible') updateTimerDisplay();});
+  document.addEventListener('pointerdown',()=>{if(state){primeAudio();syncWakeLock();}},{passive:true});
+  try{
+    state=loadState(); ensureStateShape(); saveState(); renderAll(); restoreRestTimer(); syncWakeLock();
+  }catch(e){
+    storageBlocked=true;
+    workoutView.textContent='IronLog could not safely read existing data. Nothing has been overwritten. Keep this browser data and contact support for recovery.';
+    mainBtn.disabled=true; historyBtn.disabled=true; settingsBtn.disabled=true;
+    envToggle.querySelectorAll('button').forEach(b=>b.disabled=true);
+    console.error(e);
+  }
 })();
 </script>
 </body>
 </html>
+
