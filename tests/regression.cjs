@@ -53,6 +53,10 @@ for(const [name,type] of Object.entries(process.env.TEST_CHROMIUM ? {chromium,we
  assert.equal((await state()).activeSession,null); assert.equal((await state()).dayIndex,1);
  assert.equal((await state()).history.length,1);
  assert.deepEqual((await state()).slotState['A-db-bench'].home,homeBefore);
+ // Repair an older-build state that saved A as completed but still says A is next.
+ await page.evaluate(()=>{test.state.dayIndex=0;test.saveState();});
+ await page.reload();
+ assert.equal((await state()).dayIndex,1);
  assert.equal(await page.locator('.rotation-card').count(),3);
  assert((await page.locator('.rotation-card').nth(0).textContent()).includes('Most recent'));
  assert((await page.locator('.rotation-card').nth(0).textContent()).includes('Oct'));
