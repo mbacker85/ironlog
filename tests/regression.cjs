@@ -25,7 +25,11 @@ for(const [name,type] of Object.entries(process.env.TEST_CHROMIUM ? {chromium,we
  await page.click('[data-step="inc"] >> nth=0');
  assert(await page.isDisabled('[data-env="gym"]'));
  const active=(await state()).activeSession;
- await page.reload(); assert.deepEqual((await state()).activeSession,active);
+ const beforeRefresh=page.url();
+ await page.click('#refreshBtn');
+ await page.waitForURL(url=>url.href!==beforeRefresh && url.searchParams.has('refresh'));
+ assert.deepEqual((await state()).activeSession,active);
+ assert.equal(await page.textContent('#refreshBtn'),'Refresh');
  await page.click('#settingsBtn'); await page.click('#cancelWorkout');
  assert.equal((await state()).activeSession,null); assert.equal((await state()).dayIndex,0);
  assert.deepEqual((await state()).cancelledSessions[0].items,active.items);

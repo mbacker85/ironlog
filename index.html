@@ -134,6 +134,7 @@
     <div class="header-row">
       <div class="brand">IronLog V2</div>
       <div class="header-actions">
+        <button class="icon-btn" id="refreshBtn" aria-label="Refresh IronLog and load the newest version">Refresh</button>
         <button class="icon-btn" id="historyBtn">History</button>
         <button class="icon-btn" id="settingsBtn">Settings</button>
       </div>
@@ -251,6 +252,7 @@
   const migrationBanner = document.getElementById('migrationBanner');
   const envToggle = document.getElementById('envToggle');
   const envLock = document.getElementById('envLock');
+  const refreshBtn = document.getElementById('refreshBtn');
   const historyBtn = document.getElementById('historyBtn');
   const settingsBtn = document.getElementById('settingsBtn');
   const ctaBar = document.getElementById('ctaBar');
@@ -1056,6 +1058,13 @@
     if(state.activeSession){ createActiveSession(); return; }
     saveState(); setEnvButtons(); renderDayPlate(); renderWorkout();
   }));
+  refreshBtn.addEventListener('click',()=>{
+    refreshBtn.disabled=true;
+    refreshBtn.textContent='Loading…';
+    const url=new URL(window.location.href);
+    url.searchParams.set('refresh',String(Date.now()));
+    window.setTimeout(()=>window.location.replace(url.toString()),40);
+  });
   historyBtn.addEventListener('click',renderHistory);
   settingsBtn.addEventListener('click',renderSettings);
   mainBtn.addEventListener('click',()=>{
